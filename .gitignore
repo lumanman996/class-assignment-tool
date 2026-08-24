@@ -1,0 +1,16 @@
+# Claude Code 本地配置
+.claude/
+
+# 真实学生名单 —— 含个人信息，切勿提交到 GitHub
+真实名单*.xlsx
+正式名单*.xlsx
+*新生名单*.xlsx
+分班结果*.xlsx
+
+# 系统与编辑器
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+node_modules/

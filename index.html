@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>七年级新生分班工具</title>
+<style>
+  :root {
+    --blue: #2563eb; --blue-dark: #1d4ed8; --bg: #f3f5f9; --card: #ffffff;
+    --text: #1f2937; --muted: #6b7280; --border: #e5e7eb; --green: #059669;
+    --red: #dc2626; --amber: #b45309; --amber-bg: #fef3c7;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; font-size: 15px; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 26px; margin: 8px 0 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px 24px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .card h2 { font-size: 18px; margin: 0 0 14px; display: flex; align-items: center; gap: 10px; }
+  .step-num { display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 50%; background: var(--blue); color: #fff;
+    font-size: 14px; flex: none; }
+  .hidden { display: none !important; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+    background: #fff; padding: 8px 16px; color: var(--text); }
+  button:hover { border-color: var(--blue); color: var(--blue); }
+  button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+  button.primary:hover { background: var(--blue-dark); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  select, input[type=number], input[type=text] { font: inherit; padding: 7px 10px;
+    border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+  input[type=number] { width: 110px; }
+  label { user-select: none; }
+
+  /* 导入 */
+  #dropzone { border: 2px dashed #c3cbd8; border-radius: 12px; padding: 36px 20px;
+    text-align: center; color: var(--muted); transition: .15s; }
+  #dropzone.dragover { border-color: var(--blue); background: #eff6ff; }
+  #dropzone strong { color: var(--text); }
+  .maprow { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 8px; }
+  .maprow label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; }
+  .pill.ok { background: #d1fae5; color: var(--green); }
+  .pill.warn { background: var(--amber-bg); color: var(--amber); }
+  .pill.bad { background: #fee2e2; color: var(--red); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: center; }
+  th { background: #f8fafc; font-weight: 600; }
+  tr.range-row td { background: #fffbeb; font-weight: 600; }
+  .table-scroll { overflow-x: auto; }
+
+  .settings-row { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; }
+  .settings-row .item { display: flex; align-items: center; gap: 8px; }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 12px; }
+  .tabs button.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+  td .swapbtn { padding: 3px 10px; font-size: 13px; }
+  .male { color: #2563eb; } .female { color: #db2777; }
+
+  .log { font-size: 13px; color: var(--muted); margin-top: 12px; }
+  .log li { margin: 3px 0; }
+  .log button { padding: 1px 8px; font-size: 12px; margin-left: 8px; }
+
+  /* 弹窗 */
+  #overlay { position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .modal { background: #fff; border-radius: 14px; padding: 24px 28px; width: 560px;
+    max-width: calc(100vw - 40px); max-height: 86vh; overflow-y: auto; }
+  .modal h3 { margin: 0 0 12px; font-size: 17px; }
+  .modal .field { margin: 12px 0; }
+  .cand { display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    border: 1px solid var(--border); border-radius: 8px; margin: 6px 0; cursor: pointer; }
+  .cand:hover { border-color: var(--blue); }
+  .cand input { flex: none; }
+  .cand .diff { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .warnbox { background: var(--amber-bg); color: var(--amber); border-radius: 8px;
+    padding: 10px 14px; font-size: 14px; }
+  .modal .btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .muted { color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>七年级新生分班工具</h1>
+  <div class="subtitle">蛇形分班 · 语数英三科与总分均衡 · 性别均衡 · 数据全程在本机处理，不会上传</div>
+
+  <!-- 第 1 步：导入 -->
+  <div class="card" id="card-import">
+    <h2><span class="step-num">1</span>导入学生名单 (Excel)</h2>
+    <div id="dropzone">
+      <p><strong>把 Excel 文件拖到这里</strong>，或
+        <button id="btn-pick" class="primary">选择文件</button></p>
+      <p class="muted">需要包含：姓名、性别（男/女）、语文、数学、英语成绩。其他列（学号、毕业小学等）会原样保留。</p>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" class="hidden">
+    </div>
+    <div id="import-result" class="hidden">
+      <p id="file-info"></p>
+      <div class="maprow" id="mapping"></div>
+      <p id="validate-summary" style="margin-top:14px"></p>
+      <div id="invalid-box" class="hidden">
+        <p class="muted">以下行存在问题，将<strong>不参与分班</strong>（可在 Excel 中修正后重新导入）：</p>
+        <div class="table-scroll"><table id="invalid-table"></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 第 2 步：设置 -->
+  <div class="card hidden" id="card-settings">
+    <h2><span class="step-num">2</span>分班设置</h2>
+    <div class="settings-row">
+      <div class="item"><label for="class-count">班级数量</label>
+        <input type="number" id="class-count" min="2" max="30" value="8"></div>
+      <div class="item"><label><input type="checkbox" id="opt-optimize" checked>
+        单科均衡优化（推荐，蛇形后自动微调使三科平均分更接近）</label></div>
+      <div class="item"><label for="seed">随机种子</label>
+        <input type="number" id="seed"><button id="btn-reseed" title="换一个种子会得到另一种同样均衡的方案">换一个</button></div>
+      <button class="primary" id="btn-run">开始分班</button>
+    </div>
+    <p class="muted" style="margin-bottom:0">同分学生的先后顺序由随机种子决定；记下种子号即可复现同一份分班结果。</p>
+  </div>
+
+  <!-- 第 3 步：结果 -->
+  <div class="card hidden" id="card-result">
+    <h2><span class="step-num">3</span>分班结果与均衡度</h2>
+    <div class="table-scroll"><table id="stats-table"></table></div>
+    <div class="tabs" id="class-tabs"></div>
+    <div class="table-scroll"><table id="roster-table"></table></div>
+    <div id="adjust-log-box" class="log hidden">
+      <strong>手动调整记录：</strong><ul id="adjust-log"></ul>
+    </div>
+  </div>
+
+  <!-- 第 4 步：导出 -->
+  <div class="card hidden" id="card-export">
+    <h2><span class="step-num">4</span>导出</h2>
+    <button class="primary" id="btn-export">导出分班结果 Excel</button>
+    <span class="muted">包含：总名单（原表 + 班级列）、每班一个工作表、均衡度统计表</span>
+  </div>
+</div>
+
+<!-- 调班弹窗 -->
+<div id="overlay" class="hidden">
+  <div class="modal">
+    <h3 id="modal-title">调班</h3>
+    <div class="field" id="modal-student-info"></div>
+    <div class="field">目标班级：<select id="modal-target"></select></div>
+    <div class="field">
+      <label><input type="radio" name="swap-mode" value="swap" checked>
+        <strong>对调</strong>（推荐）—— 自动从目标班换出一名<strong>同性别、总分位置相同</strong>的学生，均衡不受影响</label><br>
+      <label><input type="radio" name="swap-mode" value="move" style="margin-top:6px">
+        仅移动，不换人</label>
+    </div>
+    <div class="field" id="modal-candidates"></div>
+    <div class="field warnbox hidden" id="modal-warn">
+      注意：仅移动会改变两个班的人数和性别构成，破坏均衡，请谨慎使用。
+    </div>
+    <div class="btns">
+      <button id="modal-cancel">取消</button>
+      <button class="primary" id="modal-confirm">确认调班</button>
+    </div>
+  </div>
+</div>
+
+<script src="xlsx.full.min.js"></script>
+<script src="algo.js"></script>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const FIELDS = [
+  { key: "name",    label: "姓名" },
+  { key: "gender",  label: "性别" },
+  { key: "chinese", label: "语文" },
+  { key: "math",    label: "数学" },
+  { key: "english", label: "英语" },
+];
+const AUTO_PATTERNS = {
+  name: ["姓名", "学生姓名", "名字"],
+  gender: ["性别"],
+  chinese: ["语文"],
+  math: ["数学"],
+  english: ["英语"],
+};
+
+const state = {
+  fileName: "", headers: [], rows: [],
+  mapping: {},          // key -> 表头名
+  students: [],         // {row, name, gender, chinese, math, english, total}
+  invalid: [],          // {line, reason, row}
+  classCount: 8, seed: 0, optimize: true,
+  assignment: null,     // students 下标 -> 班级下标
+  currentClass: 0,
+  adjustLog: [],        // {text, undo}
+  modal: null,          // 调班弹窗上下文
+};
+
+/* ---------- 第 1 步：导入 ---------- */
+$("btn-pick").onclick = () => $("file-input").click();
+$("file-input").onchange = (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); };
+const dz = $("dropzone");
+dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+dz.addEventListener("drop", (e) => {
+  e.preventDefault(); dz.classList.remove("dragover");
+  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+});
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let wb;
+    try { wb = XLSX.read(e.target.result, { type: "array" }); }
+    catch (err) { alert("文件读取失败，请确认是有效的 Excel 文件。\n" + err.message); return; }
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
+    if (!rows.length) { alert("第一个工作表没有数据。"); return; }
+    state.fileName = file.name;
+    state.rows = rows;
+    state.headers = Object.keys(rows[0]);
+    autoMap();
+    renderMapping();
+    $("file-info").innerHTML = `已读取 <strong>${file.name}</strong>（工作表「${wb.SheetNames[0]}」，共 ${rows.length} 行）。请确认下面的列对应关系：`;
+    $("import-result").classList.remove("hidden");
+    revalidate();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function autoMap() {
+  state.mapping = {};
+  for (const f of FIELDS) {
+    const exact = state.headers.find((h) => AUTO_PATTERNS[f.key].includes(h.trim()));
+    const fuzzy = state.headers.find((h) => AUTO_PATTERNS[f.key].some((p) => h.includes(p)));
+    state.mapping[f.key] = exact || fuzzy || "";
+  }
+}
+
+function renderMapping() {
+  const box = $("mapping");
+  box.innerHTML = "";
+  for (const f of FIELDS) {
+    const label = document.createElement("label");
+    label.textContent = f.label + " 对应的列";
+    const sel = document.createElement("select");
+    sel.innerHTML = `<option value="">（未选择）</option>` +
+      state.headers.map((h) => `<option value="${h}"${h === state.mapping[f.key] ? " selected" : ""}>${h}</option>`).join("");
+    sel.onchange = () => { state.mapping[f.key] = sel.value; revalidate(); };
+    label.appendChild(sel);
+    box.appendChild(label);
+  }
+}
+
+function revalidate() {
+  const m = state.mapping;
+  const missing = FIELDS.filter((f) => !m[f.key]).map((f) => f.label);
+  if (missing.length) {
+    $("validate-summary").innerHTML = `<span class="pill bad">请先指定列：${missing.join("、")}</span>`;
+    $("invalid-box").classList.add("hidden");
+    hideFrom("card-settings");
+    return;
+  }
+  const students = [], invalid = [];
+  state.rows.forEach((row, i) => {
+    const line = i + 2; // Excel 行号（含表头）
+    const name = String(row[m.name]).trim();
+    const gender = String(row[m.gender]).trim();
+    const reasons = [];
+    if (!name) reasons.push("姓名为空");
+    if (gender !== "男" && gender !== "女") reasons.push(`性别应为"男"或"女"（当前：${gender || "空"}）`);
+    const scores = {};
+    for (const key of ["chinese", "math", "english"]) {
+      const raw = row[m[key]];
+      const v = Number(raw);
+      if (raw === "" || raw == null || !isFinite(v)) {
+        reasons.push(`${FIELDS.find((f) => f.key === key).label}成绩缺失或不是数字`);
+      } else scores[key] = v;
+    }
+    if (reasons.length) invalid.push({ line, name: name || "（无姓名）", reason: reasons.join("；"), row });
+    else students.push({ row, line, name, gender, ...scores, total: scores.chinese + scores.math + scores.english });
+  });
+  state.students = students;
+  state.invalid = invalid;
+
+  const male = students.filter((s) => s.gender === "男").length;
+  let html = `<span class="pill ok">有效学生 ${students.length} 人（男 ${male}，女 ${students.length - male}）</span>`;
+  if (invalid.length) html += ` <span class="pill warn">异常 ${invalid.length} 行（不参与分班）</span>`;
+  $("validate-summary").innerHTML = html;
+
+  if (invalid.length) {
+    $("invalid-box").classList.remove("hidden");
+    $("invalid-table").innerHTML =
+      `<tr><th>Excel 行号</th><th>姓名</th><th>问题</th></tr>` +
+      invalid.map((v) => `<tr><td>${v.line}</td><td>${v.name}</td><td style="text-align:left">${v.reason}</td></tr>`).join("");
+  } else $("invalid-box").classList.add("hidden");
+
+  if (students.length >= 2) {
+    $("card-settings").classList.remove("hidden");
+    if (!$("seed").value) $("seed").value = randomSeed();
+  } else hideFrom("card-settings");
+  hideFrom("card-result");
+}
+
+function hideFrom(id) {
+  const order = ["card-settings", "card-result", "card-export"];
+  for (let i = order.indexOf(id); i < order.length && i >= 0; i++) $(order[i]).classList.add("hidden");
+}
+
+/* ---------- 第 2 步：设置与分班 ---------- */
+function randomSeed() { return Math.floor(Math.random() * 900000) + 100000; }
+$("btn-reseed").onclick = () => { $("seed").value = randomSeed(); };
+$("btn-run").onclick = () => {
+  const n = parseInt($("class-count").value, 10);
+  if (!(n >= 2 && n <= 30)) { alert("班级数量请填 2~30 之间的整数。"); return; }
+  if (n > state.students.length) { alert("班级数量不能超过学生人数。"); return; }
+  state.classCount = n;
+  state.seed = parseInt($("seed").value, 10) || randomSeed();
+  $("seed").value = state.seed;
+  state.optimize = $("opt-optimize").checked;
+  state.assignment = FenbanAlgo.assign(state.students, n, { seed: state.seed, optimize: state.optimize });
+  state.adjustLog = [];
+  state.currentClass = 0;
+  renderResult();
+  $("card-result").classList.remove("hidden");
+  $("card-export").classList.remove("hidden");
+  $("card-result").scrollIntoView({ behavior: "smooth" });
+};
+
+/* ---------- 第 3 步：结果展示 ---------- */
+const clsName = (i) => (i + 1) + "班";
+const fmt = (v) => v.toFixed(2);
+
+function renderResult() { renderStats(); renderTabs(); renderRoster(); renderLog(); }
+
+function renderStats() {
+  const st = FenbanAlgo.computeStats(state.students, state.assignment, state.classCount);
+  let html = `<tr><th>班级</th><th>人数</th><th>男</th><th>女</th><th>语文平均</th><th>数学平均</th><th>英语平均</th><th>总分平均</th></tr>`;
+  st.classes.forEach((k, i) => {
+    html += `<tr><td>${clsName(i)}</td><td>${k.count}</td><td>${k.male}</td><td>${k.female}</td>` +
+      `<td>${fmt(k.avg_chinese)}</td><td>${fmt(k.avg_math)}</td><td>${fmt(k.avg_english)}</td><td>${fmt(k.avg_total)}</td></tr>`;
+  });
+  const r = st.ranges;
+  html += `<tr class="range-row"><td>班级间差距</td><td>${r.count}</td><td>${r.male}</td><td>${r.female}</td>` +
+    `<td>${fmt(r.avg_chinese)}</td><td>${fmt(r.avg_math)}</td><td>${fmt(r.avg_english)}</td><td>${fmt(r.avg_total)}</td></tr>`;
+  $("stats-table").innerHTML = html;
+}
+
+function renderTabs() {
+  const box = $("class-tabs");
+  box.innerHTML = "";
+  for (let i = 0; i < state.classCount; i++) {
+    const b = document.createElement("button");
+    b.textContent = clsName(i);
+    if (i === state.currentClass) b.classList.add("active");
+    b.onclick = () => { state.currentClass = i; renderTabs(); renderRoster(); };
+    box.appendChild(b);
+  }
+}
+
+function renderRoster() {
+  const c = state.currentClass;
+  const members = state.students
+    .map((s, i) => ({ s, i }))
+    .filter((x) => state.assignment[x.i] === c)
+    .sort((a, b) => b.s.total - a.s.total);
+  let html = `<tr><th>序号</th><th>姓名</th><th>性别</th><th>语文</th><th>数学</th><th>英语</th><th>总分</th><th title="学生在原始 Excel 中的行号，便于核对重名学生">原表行号</th><th>操作</th></tr>`;
+  members.forEach((x, n) => {
+    const g = x.s.gender;
+    html += `<tr><td>${n + 1}</td><td>${x.s.name}</td>` +
+      `<td class="${g === "男" ? "male" : "female"}">${g}</td>` +
+      `<td>${x.s.chinese}</td><td>${x.s.math}</td><td>${x.s.english}</td><td><strong>${x.s.total}</strong></td>` +
+      `<td class="muted">${x.s.line}</td>` +
+      `<td><button class="swapbtn" onclick="openModal(${x.i})">调班</button></td></tr>`;
+  });
+  $("roster-table").innerHTML = html;
+}
+
+function renderLog() {
+  const box = $("adjust-log-box");
+  if (!state.adjustLog.length) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+  const ul = $("adjust-log");
+  ul.innerHTML = "";
+  state.adjustLog.forEach((entry, i) => {
+    const li = document.createElement("li");
+    li.textContent = `${i + 1}. ${entry.text}`;
+    const btn = document.createElement("button");
+    btn.textContent = "撤销";
+    btn.onclick = () => { entry.undo(); state.adjustLog.splice(i, 1); renderResult(); };
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+}
+
+/* ---------- 调班弹窗 ---------- */
+window.openModal = function (idx) {
+  const s = state.students[idx];
+  const from = state.assignment[idx];
+  state.modal = { idx, from, candidates: [], chosen: -1 };
+  $("modal-title").textContent = `调班：${s.name}`;
+  $("modal-student-info").innerHTML =
+    `<span class="${s.gender === "男" ? "male" : "female"}">${s.gender}</span>，` +
+    `现在 <strong>${clsName(from)}</strong>，语文 ${s.chinese} / 数学 ${s.math} / 英语 ${s.english}，总分 <strong>${s.total}</strong>` +
+    `<span class="muted">（原表第 ${s.line} 行）</span>`;
+  const sel = $("modal-target");
+  sel.innerHTML = "";
+  for (let i = 0; i < state.classCount; i++) {
+    if (i === from) continue;
+    sel.innerHTML += `<option value="${i}">${clsName(i)}</option>`;
+  }
+  sel.onchange = refreshCandidates;
+  document.querySelectorAll('input[name="swap-mode"]').forEach((r) => {
+    r.checked = r.value === "swap";
+    r.onchange = refreshCandidates;
+  });
+  refreshCandidates();
+  $("overlay").classList.remove("hidden");
+};
+
+function refreshCandidates() {
+  const mode = document.querySelector('input[name="swap-mode"]:checked').value;
+  const target = parseInt($("modal-target").value, 10);
+  const box = $("modal-candidates");
+  $("modal-warn").classList.toggle("hidden", mode !== "move");
+  if (mode === "move") { box.innerHTML = ""; state.modal.chosen = -1; return; }
+
+  const cands = FenbanAlgo.swapCandidates(state.students, state.assignment, state.modal.idx, target).slice(0, 8);
+  state.modal.candidates = cands;
+  if (!cands.length) {
+    box.innerHTML = `<div class="warnbox">目标班没有同性别的学生可对调，只能选择「仅移动」。</div>`;
+    state.modal.chosen = -1;
+    return;
+  }
+  state.modal.chosen = cands[0].index;
+  box.innerHTML = `<div class="muted" style="margin-bottom:4px">将从 ${clsName(target)} 换出（已按总分接近程度排序，默认选第一个）：</div>` +
+    cands.map((c, i) => {
+      const s = state.students[c.index];
+      return `<label class="cand"><input type="radio" name="cand" value="${c.index}"${i === 0 ? " checked" : ""}>` +
+        `${s.name}（${s.gender}，总分 ${s.total}，原表第 ${s.line} 行）<span class="diff">总分相差 ${c.diff}</span></label>`;
+    }).join("");
+  box.querySelectorAll('input[name="cand"]').forEach((r) => {
+    r.onchange = () => { state.modal.chosen = parseInt(r.value, 10); };
+  });
+}
+
+$("modal-cancel").onclick = () => $("overlay").classList.add("hidden");
+$("overlay").onclick = (e) => { if (e.target === $("overlay")) $("overlay").classList.add("hidden"); };
+
+$("modal-confirm").onclick = () => {
+  const { idx, from } = state.modal;
+  const target = parseInt($("modal-target").value, 10);
+  const mode = document.querySelector('input[name="swap-mode"]:checked').value;
+  const A = state.students[idx];
+
+  if (mode === "swap") {
+    if (state.modal.chosen < 0) { alert("没有可对调的学生，请改用「仅移动」。"); return; }
+    const j = state.modal.chosen;
+    const B = state.students[j];
+    state.assignment[idx] = target;
+    state.assignment[j] = from;
+    state.adjustLog.push({
+      text: `${A.name}(第${A.line}行，${clsName(from)}) 与 ${B.name}(第${B.line}行，${clsName(target)}) 对调`,
+      undo: () => { state.assignment[idx] = from; state.assignment[j] = target; },
+    });
+  } else {
+    state.assignment[idx] = target;
+    state.adjustLog.push({
+      text: `${A.name}(第${A.line}行) 从 ${clsName(from)} 移动到 ${clsName(target)}（未对调）`,
+      undo: () => { state.assignment[idx] = from; },
+    });
+  }
+  $("overlay").classList.add("hidden");
+  renderResult();
+};
+
+/* ---------- 第 4 步：导出 ---------- */
+$("btn-export").onclick = () => {
+  const wb = XLSX.utils.book_new();
+  const N = state.classCount;
+
+  // 总名单：原始列 + 班级，按班级、总分排序
+  const all = state.students
+    .map((s, i) => ({ s, i, cls: state.assignment[i] }))
+    .sort((a, b) => a.cls - b.cls || b.s.total - a.s.total)
+    .map((x) => ({ ...x.s.row, "总分": x.s.total, "班级": clsName(x.cls) }));
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(all), "总名单");
+
+  // 每班一个工作表
+  for (let c = 0; c < N; c++) {
+    const rows = state.students
+      .map((s, i) => ({ s, i }))
+      .filter((x) => state.assignment[x.i] === c)
+      .sort((a, b) => b.s.total - a.s.total)
+      .map((x, n) => ({ "序号": n + 1, ...x.s.row, "总分": x.s.total }));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), clsName(c));
+  }
+
+  // 均衡统计
+  const st = FenbanAlgo.computeStats(state.students, state.assignment, N);
+  const statRows = st.classes.map((k, i) => ({
+    "班级": clsName(i), "人数": k.count, "男": k.male, "女": k.female,
+    "语文平均": +fmt(k.avg_chinese), "数学平均": +fmt(k.avg_math),
+    "英语平均": +fmt(k.avg_english), "总分平均": +fmt(k.avg_total),
+  }));
+  const r = st.ranges;
+  statRows.push({
+    "班级": "班级间差距", "人数": r.count, "男": r.male, "女": r.female,
+    "语文平均": +fmt(r.avg_chinese), "数学平均": +fmt(r.avg_math),
+    "英语平均": +fmt(r.avg_english), "总分平均": +fmt(r.avg_total),
+  });
+  statRows.push({});
+  statRows.push({ "班级": "分班参数", "人数": `${N}个班 / 种子${state.seed} / ${state.optimize ? "已" : "未"}开启单科优化` });
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(statRows), "均衡统计");
+
+  XLSX.writeFile(wb, "分班结果.xlsx");
+};
+</script>
+</body>
+</html>
