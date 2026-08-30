@@ -14,3 +14,10 @@ desktop.ini
 .vscode/
 .idea/
 node_modules/
+
+# 招生档案资料 —— 含学校内部信息，仅本地保存，不得推送
+招生入学专项整治资料/
+档案源文件/
+
+# 档案转换脚本 —— 属档案工作流，仅本地保存
+scripts/md2docx.py

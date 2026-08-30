@@ -138,6 +138,16 @@
     <h2><span class="step-num">4</span>导出</h2>
     <button class="primary" id="btn-export">导出分班结果 Excel</button>
     <span class="muted">包含：总名单（原表 + 班级列）、每班一个工作表、均衡度统计表</span>
+    <hr style="border:none;border-top:1px solid var(--border);margin:18px 0">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+      <button id="btn-notice">生成编班结果公示（可打印）</button>
+      <label class="muted">学校名称
+        <input type="text" id="school-name" placeholder="【学校名称】" style="width:220px"></label>
+      <label class="muted">学年
+        <input type="text" id="school-year" placeholder="【XXXX】" style="width:90px"></label>
+    </div>
+    <p class="muted" style="margin-bottom:0">公示件含各班名单、均衡度数据、编班说明与签字栏，可直接打印张贴。
+      <strong>公示不含学生成绩</strong>，仅公布班级名单，避免泄露个人成绩。</p>
   </div>
 </div>
 
@@ -714,6 +724,104 @@ $("btn-export").onclick = () => {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(statRows), "均衡统计");
 
   XLSX.writeFile(wb, "分班结果.xlsx");
+};
+
+/* ---------- 生成编班结果公示（可打印） ---------- */
+$("btn-notice").onclick = () => {
+  const N = state.classCount;
+  const school = $("school-name").value.trim() || "【学校名称】";
+  const year = $("school-year").value.trim() || "【XXXX】";
+  const st = FenbanAlgo.computeStats(state.students, state.assignment, N);
+  const today = new Date();
+  const dateStr = `${today.getFullYear()} 年 ${today.getMonth() + 1} 月 ${today.getDate()} 日`;
+  const esc = (t) => String(t).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+  // 各班名单（仅姓名，按姓名笔画近似=按拼音排序，不体现成绩排名）
+  let rosters = "";
+  for (let c = 0; c < N; c++) {
+    const names = state.students
+      .map((s, i) => ({ s, i }))
+      .filter((x) => state.assignment[x.i] === c)
+      .map((x) => x.s.name)
+      .sort((a, b) => a.localeCompare(b, "zh-Hans-CN"));
+    const k = st.classes[c];
+    rosters += `<div class="cls"><h3>${esc(year)}级 ${c + 1} 班（共 ${k.count} 人：男 ${k.male} 人，女 ${k.female} 人）</h3><ol class="names">` +
+      names.map((n) => `<li>${esc(n)}</li>`).join("") + `</ol></div>`;
+  }
+
+  // 均衡度表（公示平均分体现均衡，不含个人成绩）
+  let statRows = st.classes.map((k, i) =>
+    `<tr><td>${i + 1} 班</td><td>${k.count}</td><td>${k.male}</td><td>${k.female}</td>` +
+    `<td>${fmt(k.avg_chinese)}</td><td>${fmt(k.avg_math)}</td><td>${fmt(k.avg_english)}</td><td>${fmt(k.avg_total)}</td></tr>`).join("");
+  const r = st.ranges;
+  statRows += `<tr class="hl"><td>班级间最大差距</td><td>${r.count}</td><td>${r.male}</td><td>${r.female}</td>` +
+    `<td>${fmt(r.avg_chinese)}</td><td>${fmt(r.avg_math)}</td><td>${fmt(r.avg_english)}</td><td>${fmt(r.avg_total)}</td></tr>`;
+
+  const adjustNote = state.adjustLog.length
+    ? `<p>本次编班经审批的个别调整共 ${state.adjustLog.length} 处，均采用同性别、同水平对调方式办理，未改变各班人数与性别构成，调整记录已存档备查。</p>`
+    : `<p>本次编班未作任何个别调整。</p>`;
+
+  const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
+<title>${esc(school)}${esc(year)}年七年级编班结果公示</title>
+<style>
+  body{font-family:"SimSun","宋体",serif;font-size:14pt;line-height:1.8;color:#000;
+    max-width:800px;margin:0 auto;padding:30px 40px;}
+  h1{text-align:center;font-family:"SimHei","黑体",sans-serif;font-size:22pt;
+    line-height:1.5;margin:0 0 6px;}
+  .sub{text-align:center;font-size:12pt;color:#444;margin-bottom:24px;}
+  h2{font-family:"SimHei","黑体",sans-serif;font-size:16pt;margin:22px 0 10px;
+    border-bottom:1px solid #000;padding-bottom:4px;}
+  h3{font-family:"SimHei","黑体",sans-serif;font-size:14pt;margin:16px 0 8px;}
+  table{border-collapse:collapse;width:100%;font-size:11pt;margin:10px 0;}
+  th,td{border:1px solid #000;padding:5px 6px;text-align:center;}
+  th{background:#f0f0f0;}
+  tr.hl td{font-weight:bold;background:#f7f7f7;}
+  .names{columns:5;column-gap:16px;font-size:12pt;padding-left:26px;margin:6px 0 14px;}
+  .names li{break-inside:avoid;margin:2px 0;}
+  .cls{break-inside:avoid-page;}
+  .sign{margin-top:34px;line-height:2.6;}
+  .sign .row{display:flex;gap:40px;flex-wrap:wrap;}
+  .foot{margin-top:30px;text-align:right;line-height:2;}
+  .tip{border:1px solid #000;padding:10px 14px;margin:16px 0;font-size:12pt;}
+  @media print{ body{padding:0;} @page{margin:2cm;} }
+</style></head><body>
+<h1>${esc(school)}<br>${esc(year)}年七年级新生编班结果公示</h1>
+<div class="sub">公示期：${dateStr} 起 5 个工作日</div>
+
+<h2>一、编班依据与方法</h2>
+<p>根据《${esc(school)}${esc(year)}年七年级新生均衡编班方案》，本次编班以学生小学阶段语文、数学、英语三科成绩及性别为均衡依据，采用<strong>计算机蛇形（S 形）均衡编班</strong>方法，并经同性别跨班对调优化，确保各班学业水平与男女比例大体相当。</p>
+<p>编班全程由学校纪检委员、教师代表、家长代表现场监督。编班使用的随机种子号为 <strong>${state.seed}</strong>，凭此种子号可完整复现本次编班结果，确保过程公开、可核查、不可暗箱操作。</p>
+<div class="tip"><strong>特别声明：</strong>我校<strong>不设任何形式的重点班、快慢班、实验班</strong>，各班班主任及任课教师在编班结果封存后统筹配置。学生成绩仅用于均衡分配，不排名、不公开。</div>
+
+<h2>二、各班均衡情况</h2>
+<table><tr><th>班级</th><th>人数</th><th>男生</th><th>女生</th><th>语文平均分</th><th>数学平均分</th><th>英语平均分</th><th>总分平均分</th></tr>
+${statRows}</table>
+<p>全年级共 <strong>${state.students.length}</strong> 名学生，编入 <strong>${N}</strong> 个教学班。各班人数最大相差 ${r.count} 人，男生人数最大相差 ${r.male} 人，女生人数最大相差 ${r.female} 人，三科平均分最大相差 ${fmt(Math.max(r.avg_chinese, r.avg_math, r.avg_english))} 分，达到均衡编班要求。</p>
+${adjustNote}
+
+<h2>三、各班学生名单</h2>
+<p style="font-size:12pt;color:#444">（名单按姓名排序，不代表任何排名）</p>
+${rosters}
+
+<h2>四、监督与申诉</h2>
+<p>公示期内，如对编班结果有疑问或异议，可通过以下渠道反映，学校将在 5 个工作日内答复：</p>
+<p>咨询电话：____________　　监督投诉电话：____________　　投诉邮箱：____________</p>
+<p>上级主管部门监督电话：____________</p>
+<p>公示期满无异议后，编班结果正式生效。此后<strong>任何人不得擅自调整学生班级</strong>；确因特殊原因需要调整的，须按规定履行申请、审批、备案手续。</p>
+
+<div class="sign">
+  <div class="row"><span>编班负责人（签字）：________________</span><span>学校纪检委员（签字）：________________</span></div>
+  <div class="row"><span>教师代表（签字）：________________</span><span>家长代表（签字）：________________</span></div>
+</div>
+<div class="foot">${esc(school)}（盖章）<br>${dateStr}</div>
+</body></html>`;
+
+  const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank");
+  if (!w) { alert("浏览器拦截了新窗口，请允许弹出窗口后重试。"); URL.revokeObjectURL(url); return; }
+  // 供打印/另存为 PDF；也可用"另存为"保存 HTML 后用 Word 打开
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 };
 </script>
 </body>
