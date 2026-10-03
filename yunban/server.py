@@ -11,13 +11,15 @@ import subprocess
 import sys
 import threading
 import time
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import VERSION, license, paths, pdf
+from . import HOMEPAGE, VERSION, license, paths, pdf
 
-STATIC = {"algo.js": "text/javascript", "app.js": "text/javascript", "demo.js": "text/javascript",
-          "xlsx.full.min.js": "text/javascript"}
+STATIC = {"algo.js": "text/javascript; charset=utf-8", "app.js": "text/javascript; charset=utf-8",
+          "demo.js": "text/javascript; charset=utf-8", "xlsx.full.min.js": "text/javascript; charset=utf-8",
+          "wechat.png": "image/png"}
 
 
 class ApiError(Exception):
@@ -90,6 +92,12 @@ class App:
         open_path(paths.OUTPUT)
         return {}
 
+    def api_homepage(self, body):
+        """用系统浏览器打开项目主页。网址写死在这里，界面不能让程序打开别的地址。"""
+        if not os.environ.get("YUNBAN_NO_OPEN"):
+            webbrowser.open(HOMEPAGE)
+        return {"url": HOMEPAGE}
+
     def api_ping(self, body):
         self.last_ping = time.time()
         return {}
@@ -134,7 +142,7 @@ def make_handler(app: App):
                 html = (ui / "index.html").read_text(encoding="utf-8").replace("__YUNBAN_TOKEN__", app.token)
                 return self._send(200, html.encode("utf-8"), "text/html; charset=utf-8")
             if name in STATIC:
-                return self._send(200, (ui / name).read_bytes(), STATIC[name] + "; charset=utf-8")
+                return self._send(200, (ui / name).read_bytes(), STATIC[name])
             self._send(404, b"", "text/plain")
 
         def do_POST(self):

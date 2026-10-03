@@ -62,6 +62,7 @@ yunban/             程序
     algo.js         分班核心算法（界面与测试共用）
     demo.js         演示名单生成器
     xlsx.full.min.js  SheetJS，读写 Excel
+    wechat.png      帮助里「联系作者」用的微信二维码
   server.py         只在本机监听的小服务：提供界面，替界面保存文件、生成 PDF、检查许可
   gui.py            用 pywebview 开程序窗口；没有窗口组件时退回浏览器
   pdf.py            调用电脑上已有的 Edge / Chrome 把页面打印成 PDF

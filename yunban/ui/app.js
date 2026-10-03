@@ -1072,6 +1072,7 @@ async function refreshLicense() {
   const st = await api("state");
   license = st.license;
   $("out-folder").textContent = st.output;
+  $("about-version").textContent = `匀班 版本 ${st.version}`;
   renderLicense();
 }
 function renderLicense() {
@@ -1116,6 +1117,13 @@ $("lic-activate").onclick = async () => {
   toast("激活成功");
 };
 $("btn-reveal").onclick = () => api("reveal");
+// 帮助里的「联系作者」
+$("about-copy").onclick = () => {
+  const text = $("about-wechat").textContent;
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast("微信号已复制"), () => toast("复制失败，请手动选中复制。", true));
+  else toast("请手动选中微信号复制。", true);
+};
+$("about-link").onclick = (e) => { e.preventDefault(); api("homepage"); };
 refreshLicense();
 setInterval(() => api("ping").catch(() => {}), 5000); // 用浏览器显示界面时，外壳靠它知道页面还开着
 

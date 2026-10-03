@@ -26,10 +26,16 @@ def test_page_and_scripts(srv):
     url, app = srv
     html = urllib.request.urlopen(url).read().decode()
     assert "匀班" in html and app.token in html and "__YUNBAN_TOKEN__" not in html
-    for name in ("algo.js", "app.js", "demo.js", "xlsx.full.min.js"):
+    for name in ("algo.js", "app.js", "demo.js", "xlsx.full.min.js", "wechat.png"):
         assert urllib.request.urlopen(url + name).status == 200
     with pytest.raises(urllib.error.HTTPError):                 # 界面之外的文件不提供
         urllib.request.urlopen(url + "../README.md")
+
+
+def test_homepage_is_fixed(srv):
+    url, app = srv
+    res = call(url, app.token, "homepage", {"url": "https://example.com/别的地址"})
+    assert res["ok"] and res["data"]["url"] == "https://github.com/lumanman996/class-assignment-tool"
 
 
 def test_token_required(srv):
