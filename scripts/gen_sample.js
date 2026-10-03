@@ -1,6 +1,6 @@
 // 生成模拟新生名单 样例名单.xlsx
 // 用法: node scripts/gen_sample.js
-const XLSX = require("../xlsx.full.min.js");
+const XLSX = require("../yunban/ui/xlsx.full.min.js");
 const path = require("path");
 XLSX.set_fs(require("fs"));
 

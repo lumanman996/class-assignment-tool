@@ -1,0 +1,71 @@
+name: 测试、打包、发布
+
+# 每次推送都会：跑测试 → 在 Windows 和 Mac 上打包并自检。
+# 推送形如 v2.0.0 的标签时，再把打好的压缩包发布到 Releases。
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: 测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install -r requirements-dev.txt
+      - name: 分班算法测试
+        run: node tests/test_algo.js
+      - name: 外壳程序测试
+        run: python -m pytest -q
+
+  package:
+    name: 打包（${{ matrix.name }}）
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: Windows }
+          - { os: macos-latest, name: Mac }
+    runs-on: ${{ matrix.os }}
+    env:
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements-dev.txt
+      - name: 放入试用与激活模块（保密项里有才放；没有就打不限制的版本）
+        shell: bash
+        env:
+          LICENSE_IMPL: ${{ secrets.LICENSE_IMPL }}
+        run: python -c "import base64, os, pathlib; d = os.environ.get('LICENSE_IMPL', ''); d and pathlib.Path('yunban/_license_impl.py').write_bytes(base64.b64decode(d)); print('license module:', bool(d))"
+      - name: 打包
+        run: python packaging/build.py
+      - name: 用打好的程序自检
+        run: python packaging/smoke_test.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yunban-${{ matrix.name }}
+          path: dist/*.zip
+      - name: 发布到 Releases
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/*.zip --title "匀班 $GITHUB_REF_NAME" --notes-file packaging/发布说明.md \
+            || gh release upload "$GITHUB_REF_NAME" dist/*.zip --clobber

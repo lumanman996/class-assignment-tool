@@ -1,0 +1,5 @@
+# 开发、测试、打包需要的
+-r requirements.txt
+pytest>=7.0
+pyinstaller>=6.0
+pillow>=10.0          # 只有重新生成图标时用（tools/make_icons.py）
