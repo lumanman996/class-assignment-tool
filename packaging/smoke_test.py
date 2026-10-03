@@ -31,4 +31,8 @@ licensed = (root / "yunban" / "_license_impl.py").exists()
 expect = ("trial", "active", "expired") if licensed else ("open",)
 if not info.get("ok") or info.get("license") not in expect:
     sys.exit(f"自检未通过（许可状态应为 {' / '.join(expect)}）。")
+if licensed and not info.get("hasMachineCode"):
+    sys.exit("自检未通过：没有取到机器码。")
+if info.get("canPdf") and info.get("license") != "expired" and not info.get("pdfMade"):
+    sys.exit("自检未通过：电脑上有浏览器，但没有生成 PDF。")
 print("自检通过")
