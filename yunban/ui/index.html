@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>匀班 · 学生均衡分班工具</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 56 56'%3E%3Crect width='56' height='56' rx='13' fill='%23993C1D'/%3E%3Ctext x='28' y='39' text-anchor='middle' font-size='30' font-weight='bold' fill='%23fff' font-family='Songti SC,SimSun,serif'%3E匀%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --pri: #993C1D; --pri-dark: #712B13; --pri-soft: #FAECE7; --on-pri: #ffffff;
+    --bg: #F6F3EF; --card: #ffffff; --text: #2C2C2A; --muted: #6F6D68; --border: #E3DED6; --th: #F4F0EA;
+    --green: #3B6D11; --green-bg: #EAF3DE; --red: #A32D2D; --red-bg: #FCEBEB;
+    --amber: #854F0B; --amber-bg: #FAEEDA; --male: #185FA5; --female: #993556;
+  }
+  :root[data-theme="dark"] {
+    --pri: #E0714A; --pri-dark: #F0997B; --pri-soft: #3D2219; --on-pri: #1C1A18;
+    --bg: #1C1A18; --card: #272421; --text: #ECE8E1; --muted: #A39E95; --border: #3D3833; --th: #302C28;
+    --green: #97C459; --green-bg: #233016; --red: #F09595; --red-bg: #3F1C1C;
+    --amber: #EF9F27; --amber-bg: #3A2A10; --male: #85B7EB; --female: #ED93B1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --pri: #E0714A; --pri-dark: #F0997B; --pri-soft: #3D2219; --on-pri: #1C1A18;
+      --bg: #1C1A18; --card: #272421; --text: #ECE8E1; --muted: #A39E95; --border: #3D3833; --th: #302C28;
+      --green: #97C459; --green-bg: #233016; --red: #F09595; --red-bg: #3F1C1C;
+      --amber: #EF9F27; --amber-bg: #3A2A10; --male: #85B7EB; --female: #ED93B1;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; font-size: 15px; line-height: 1.6; }
+  body.big { zoom: 1.3; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 20px 16px 80px; }
+  .hidden { display: none !important; }
+  .muted { color: var(--muted); font-size: 13px; }
+
+  /* 顶栏与步骤条 */
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+  header svg { flex: none; }
+  header h1 { font-size: 24px; margin: 0; line-height: 1.2; }
+  header .tagline { color: var(--muted); font-size: 13px; }
+  header .tools { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .steps { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+  .steps button { flex: 1; min-width: 110px; display: flex; align-items: center; gap: 8px; justify-content: center;
+    padding: 10px 8px; border-radius: 10px; background: var(--card); }
+  .steps button .n { width: 22px; height: 22px; border-radius: 50%; background: var(--border); color: var(--text);
+    font-size: 13px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .steps button.active { border-color: var(--pri); color: var(--pri); font-weight: 600; }
+  .steps button.active .n, .steps button.done .n { background: var(--pri); color: var(--on-pri); }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px 24px; margin-bottom: 18px; }
+  .card h2 { font-size: 18px; margin: 0 0 14px; }
+  .card h3 { font-size: 15px; margin: 20px 0 8px; }
+  .nav { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; margin-top: 18px; }
+
+  button { font: inherit; cursor: pointer; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--card); padding: 8px 16px; color: var(--text); }
+  button:hover { border-color: var(--pri); color: var(--pri); }
+  button.primary { background: var(--pri); border-color: var(--pri); color: var(--on-pri); }
+  button.primary:hover { background: var(--pri-dark); border-color: var(--pri-dark); color: var(--on-pri); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.small { padding: 3px 10px; font-size: 13px; }
+  select, input[type=number], input[type=text], textarea { font: inherit; padding: 7px 10px; color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+  input[type=number] { width: 110px; }
+  textarea { width: 100%; resize: vertical; }
+  label { user-select: none; }
+  code { background: var(--th); border-radius: 4px; padding: 1px 5px; }
+
+  #dropzone { border: 2px dashed var(--border); border-radius: 12px; padding: 34px 20px; text-align: center; color: var(--muted); }
+  #dropzone.dragover { border-color: var(--pri); background: var(--pri-soft); }
+  #dropzone strong { color: var(--text); }
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+  .row.top { align-items: flex-start; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .item { display: flex; align-items: center; gap: 8px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 14px; color: var(--text); }
+  .chip.on { border-color: var(--pri); background: var(--pri-soft); }
+  .chip input[type=number] { width: 58px; padding: 3px 6px; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 13px; margin: 2px 0; }
+  .pill.ok { background: var(--green-bg); color: var(--green); }
+  .pill.warn { background: var(--amber-bg); color: var(--amber); }
+  .pill.bad { background: var(--red-bg); color: var(--red); }
+  .box { border-radius: 8px; padding: 10px 14px; font-size: 14px; margin: 12px 0; }
+  .box.warn { background: var(--amber-bg); color: var(--amber); }
+  .box.bad { background: var(--red-bg); color: var(--red); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: center; }
+  th { background: var(--th); font-weight: 600; }
+  tr.range-row td { background: var(--amber-bg); font-weight: 600; }
+  .table-scroll { overflow-x: auto; }
+  .male { color: var(--male); } .female { color: var(--female); }
+
+  /* 均衡评分 */
+  .score { display: flex; gap: 24px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
+  .score .num { font-size: 44px; font-weight: 700; color: var(--pri); line-height: 1; }
+  .score .bars { flex: 1; min-width: 280px; display: grid; grid-template-columns: auto 1fr auto; gap: 5px 10px;
+    align-items: center; font-size: 13px; }
+  .bar { height: 8px; border-radius: 4px; background: var(--th); overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: 4px; background: var(--green); }
+  .bar i.mid { background: var(--amber); } .bar i.high { background: var(--red); }
+
+  /* 班级切换与并排视图 */
+  .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 12px; }
+  .tabs button.active { background: var(--pri); color: var(--on-pri); border-color: var(--pri); }
+  .board { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .col { border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-height: 120px; }
+  .col.over { border-color: var(--pri); background: var(--pri-soft); }
+  .col h4 { margin: 0 0 6px; font-size: 14px; text-align: center; }
+  .col h4 small { display: block; font-weight: 400; color: var(--muted); }
+  .stu { display: flex; justify-content: space-between; gap: 6px; padding: 3px 8px; margin: 3px 0; border-radius: 6px;
+    background: var(--th); font-size: 13px; cursor: grab; border: 1px solid transparent; }
+  .stu.over { border-color: var(--pri); }
+  .stu span:last-child { color: var(--muted); }
+  .log { font-size: 13px; color: var(--muted); margin-top: 12px; }
+  .log li { margin: 3px 0; }
+
+  /* 约束 */
+  .cons-list { list-style: none; padding: 0; margin: 10px 0 0; }
+  .cons-list li { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: 8px; margin: 6px 0; }
+  .cons-list li .t { flex: none; }
+  .cons-list li .m { flex: 1; }
+
+  /* 弹窗与提示 */
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center;
+    justify-content: center; z-index: 50; }
+  .modal { background: var(--card); border-radius: 14px; padding: 24px 28px; width: 580px;
+    max-width: calc(100vw - 40px); max-height: 86vh; overflow-y: auto; }
+  .modal h3 { margin: 0 0 12px; font-size: 17px; }
+  .modal .f { margin: 12px 0; }
+  .modal .btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+  .cand { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 1px solid var(--border);
+    border-radius: 8px; margin: 6px 0; cursor: pointer; }
+  .cand:hover { border-color: var(--pri); }
+  .cand .diff { margin-left: auto; color: var(--muted); font-size: 13px; }
+  .help h4 { margin: 16px 0 4px; } .help p, .help li { font-size: 14px; } .help ol, .help ul { padding-left: 22px; margin: 4px 0; }
+  #toasts { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 100;
+    display: flex; flex-direction: column; gap: 8px; align-items: center; }
+  .toast { background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 10px; font-size: 14px;
+    max-width: 80vw; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+  .toast.bad { background: var(--red); color: #fff; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <svg width="44" height="44" viewBox="0 0 56 56" aria-hidden="true"><rect width="56" height="56" rx="13" fill="#993C1D"/><text x="28" y="39" text-anchor="middle" font-size="30" font-weight="bold" fill="#fff" font-family="Songti SC,SimSun,serif">匀</text></svg>
+    <div>
+      <h1>匀班</h1>
+      <div class="tagline">学生均衡分班工具 · 任意年级 · 科目自选 · 数据只在本机处理，不会上传</div>
+    </div>
+    <div class="tools">
+      <button id="btn-license" class="hidden"></button>
+      <button id="btn-load-plan">载入方案</button>
+      <button id="btn-help">使用说明</button>
+      <button id="btn-big" title="放大界面，适合投影到会议室屏幕">大屏</button>
+      <button id="btn-theme" title="切换深色 / 浅色">深色</button>
+      <input type="file" id="plan-input" accept=".json" class="hidden">
+    </div>
+  </header>
+
+  <div class="steps" id="steps"></div>
+
+  <!-- 第 1 步：导入 -->
+  <div class="card" id="p1">
+    <h2>导入学生名单</h2>
+    <div id="dropzone">
+      <p><strong>把 Excel 文件拖到这里</strong>，或 <button id="btn-pick" class="primary">选择文件</button></p>
+      <p class="muted">需要包含：姓名、性别。成绩列可以是任意科目、任意数量，没有成绩也可以分班。其他列会原样保留。</p>
+      <p class="muted">手头没有名单？<button id="btn-demo" class="small">载入演示数据</button> 257 名虚构学生，可直接体验全部功能。</p>
+      <input type="file" id="file-input" accept=".xlsx,.xls,.csv" class="hidden">
+    </div>
+    <div id="import-result" class="hidden">
+      <p id="file-info"></p>
+      <div class="row">
+        <label class="field" id="sheet-field">工作表<select id="sheet-select"></select></label>
+        <label class="field" id="header-field">表头在第几行<input type="number" id="header-row" min="1" max="50" value="1" style="width:90px"></label>
+        <label class="field">姓名 对应的列<select id="map-name"></select></label>
+        <label class="field">性别 对应的列<select id="map-gender"></select></label>
+      </div>
+      <h3>参与均衡的成绩科目</h3>
+      <div class="muted">勾选要均衡的科目。权重越大，该科均衡得越优先，一般保持 1。一科都不选即「无成绩模式」。</div>
+      <div class="row" id="subjects" style="margin-top:8px"></div>
+      <h3>需要打散的类别（可选）</h3>
+      <div class="muted">勾选后，同一类别的学生会尽量平均分到各班，例如同一所毕业学校、同一个原班级的学生不扎堆。</div>
+      <div class="row" id="cats" style="margin-top:8px"></div>
+      <p id="validate-summary" style="margin-top:16px"></p>
+      <div id="invalid-box" class="hidden">
+        <p class="muted">以下行存在问题，<strong>不参与分班</strong>（可在 Excel 中修正后重新导入）：</p>
+        <div class="table-scroll"><table id="invalid-table"></table></div>
+      </div>
+      <div id="missing-box" class="hidden">
+        <p class="muted">以下学生缺少部分成绩，<strong>仍会参与分班</strong>；所缺科目不计入均衡，按其余科目的水平安排：</p>
+        <div class="table-scroll"><table id="missing-table"></table></div>
+      </div>
+      <div class="nav"><button class="primary" id="next-1">下一步：分班设置</button></div>
+    </div>
+  </div>
+
+  <!-- 第 2 步：设置 -->
+  <div class="card hidden" id="p2">
+    <h2>分班设置</h2>
+    <div class="row">
+      <div class="item"><label for="grade">年级</label>
+        <input type="text" id="grade" value="七年级" style="width:110px" placeholder="如 高一"></div>
+      <div class="item"><label for="class-count">班级数量</label>
+        <input type="number" id="class-count" min="2" max="40" value="8"></div>
+      <div class="item"><label for="class-tpl">班名格式</label>
+        <input type="text" id="class-tpl" list="class-tpl-list" value="{n}班" style="width:150px">
+        <datalist id="class-tpl-list">
+          <option value="{n}班"></option><option value="（{n}）班"></option>
+          <option value="{年级}（{n}）班"></option><option value="7{nn}班"></option>
+        </datalist>
+        <span class="muted" id="class-tpl-preview"></span></div>
+    </div>
+    <p class="muted">班名格式中 <code>{n}</code> 代表班号，<code>{nn}</code> 代表两位班号（01、02…），<code>{年级}</code> 代表上面填的年级。</p>
+    <div class="row">
+      <div class="item"><label for="seed">随机种子</label>
+        <input type="number" id="seed"><button id="btn-reseed" title="换一个种子会得到另一种同样均衡的方案">换一个</button></div>
+      <div class="item"><label><input type="checkbox" id="opt-optimize" checked>
+        均衡优化（推荐，蛇形分班后自动微调，使各科平均分更接近）</label></div>
+    </div>
+    <p class="muted">水平相同的学生谁先谁后由随机种子决定。同一份名单、同样的设置、同一个种子，得到的结果完全相同。</p>
+    <h3>班主任名单（可选）</h3>
+    <div class="muted">每行一位，人数需与班级数量相同。分班后可在结果页随机抽签决定每位班主任带哪个班。</div>
+    <textarea id="teachers" rows="3" style="margin-top:8px" placeholder="张老师&#10;李老师"></textarea>
+    <div class="nav">
+      <button id="prev-2">上一步</button>
+      <button id="run-2">跳过约束，直接分班</button>
+      <button class="primary" id="next-2">下一步：约束条件</button>
+    </div>
+  </div>
+
+  <!-- 第 3 步：约束 -->
+  <div class="card hidden" id="p3">
+    <h2>约束条件（可选）</h2>
+    <p class="muted" style="margin-top:0">成绩之外的硬性要求，电脑会在满足这些要求的前提下再做均衡。没有的话直接点「开始分班」。</p>
+    <div class="row top">
+      <label class="field">类型
+        <select id="cons-type">
+          <option value="together">必须同班</option>
+          <option value="apart">必须分开</option>
+          <option value="lock">指定班级</option>
+        </select></label>
+      <label class="field">添加学生（输入姓名查找）
+        <input type="text" id="cons-search" list="cons-students" placeholder="输入姓名" style="width:220px">
+        <datalist id="cons-students"></datalist></label>
+      <label class="field hidden" id="cons-cls-field">指定到<select id="cons-cls"></select></label>
+      <label class="field">备注（可选）<input type="text" id="cons-note" style="width:220px" placeholder="如 双胞胎"></label>
+    </div>
+    <div class="row" id="cons-pending" style="margin-top:10px"></div>
+    <div style="margin-top:10px"><button id="cons-add">添加这条约束</button></div>
+    <ul class="cons-list" id="cons-list"></ul>
+    <div class="nav">
+      <button id="prev-3">上一步</button>
+      <button class="primary" id="run-3">开始分班</button>
+    </div>
+  </div>
+
+  <!-- 第 4 步：结果 -->
+  <div class="card hidden" id="p4">
+    <h2>分班结果</h2>
+    <div class="score">
+      <div><div class="muted">均衡评分</div><div class="num" id="score-num"></div><div id="score-label"></div></div>
+      <div class="bars" id="score-bars"></div>
+    </div>
+    <div id="violations"></div>
+    <div class="table-scroll"><table id="stats-table"></table></div>
+    <div id="cat-stats" class="muted" style="margin-top:8px"></div>
+    <div class="row" style="margin-top:16px">
+      <button id="btn-draw">班主任抽签</button>
+      <span style="margin-left:auto" class="item">
+        <button id="view-table" class="small">单班表格</button>
+        <button id="view-board" class="small">全部班级并排</button>
+      </span>
+    </div>
+    <div id="table-view">
+      <div class="tabs" id="class-tabs"></div>
+      <div class="table-scroll"><table id="roster-table"></table></div>
+      <p class="muted hidden" id="roster-note">* 该生缺部分科目成绩，总分为已有科目之和。</p>
+    </div>
+    <div id="board-view" class="hidden">
+      <p class="muted">把学生拖到另一名学生身上即对调，拖到班级空白处即移动。点击学生可打开调班窗口。</p>
+      <div class="board" id="board"></div>
+    </div>
+    <div id="adjust-log-box" class="log hidden">
+      <strong>手动调整记录：</strong> <button class="small" id="btn-undo">撤销最后一步</button>
+      <ol id="adjust-log"></ol>
+    </div>
+    <div class="nav">
+      <button id="prev-4">返回修改设置</button>
+      <button id="rerun">换个种子重新分班</button>
+      <button class="primary" id="next-4">下一步：导出</button>
+    </div>
+  </div>
+
+  <!-- 第 5 步：导出 -->
+  <div class="card hidden" id="p5">
+    <h2>导出</h2>
+    <div class="row">
+      <label class="item">学校名称 <input type="text" id="school-name" placeholder="【学校名称】" style="width:220px"></label>
+      <label class="item">学年 <input type="text" id="school-year" placeholder="如 2026" style="width:100px"></label>
+      <label class="item">班内排序
+        <select id="sort-mode">
+          <option value="name">按姓名</option>
+          <option value="score">按成绩</option>
+          <option value="orig">按原表顺序</option>
+        </select></label>
+    </div>
+    <p class="muted">班内排序决定导出名单的先后和「班内序号」。</p>
+
+    <p class="muted">导出的文件都保存在 <code id="out-folder">output</code> 文件夹里。
+      <button class="small" id="btn-reveal">打开这个文件夹</button></p>
+
+    <h3>分班结果 Excel</h3>
+    <button class="primary" id="btn-export">导出分班结果 Excel</button>
+    <span class="muted">总名单（原表 + 班级 + 班内序号）、每班一个工作表、均衡统计表</span>
+
+    <h3>分班报告（PDF）</h3>
+    <div class="row">
+      <button class="primary" id="btn-report">导出分班报告 PDF</button>
+      <label><input type="checkbox" id="report-scores" checked> 各班名单中包含学生成绩（内部使用）</label>
+    </div>
+    <p class="muted">带图表的完整报告：第一页是总览（均衡评分、各班情况、图表、分班设置），之后每班一页。</p>
+
+    <h3>其他 PDF</h3>
+    <div class="row">
+      <button id="btn-print-rosters">各班名单 PDF（每班一页）</button>
+      <button id="btn-notice">编班结果公示 PDF</button>
+      <label><input type="checkbox" id="notice-avg" checked> 公示中显示各班平均分</label>
+    </div>
+    <p class="muted">这两份只含姓名和性别，不含学生个人成绩。</p>
+    <div class="row"><label><input type="checkbox" id="notice-cons" checked> 报告和公示中列出约束与手动调整的数量</label></div>
+    <p class="muted">PDF 生成后会自动打开，可以直接查看、打印或转发。</p>
+
+    <h3>方案文件</h3>
+    <button id="btn-save-plan">保存方案文件</button>
+    <span class="muted">包含名单、全部设置、约束和当前结果，保存在 output 文件夹。以后点右上角「载入方案」即可原样恢复。文件内含学生信息，请妥善保管。</span>
+    <div class="nav"><button id="prev-5">返回结果</button></div>
+  </div>
+</div>
+
+<!-- 调班弹窗 -->
+<div id="overlay" class="overlay hidden">
+  <div class="modal">
+    <h3 id="modal-title">调班</h3>
+    <div class="f" id="modal-student-info"></div>
+    <div class="f">目标班级：<select id="modal-target"></select></div>
+    <div class="f">
+      <label><input type="radio" name="swap-mode" value="swap" checked>
+        <strong>对调</strong>（推荐）—— 从目标班换回一名<strong>同性别、成绩水平最接近</strong>的学生，均衡不受影响</label><br>
+      <label><input type="radio" name="swap-mode" value="move"> 仅移动，不换人</label>
+    </div>
+    <div class="f" id="modal-candidates"></div>
+    <div class="box warn hidden" id="modal-warn">仅移动会改变两个班的人数和性别构成。</div>
+    <div class="btns">
+      <button id="modal-cancel">取消</button>
+      <button class="primary" id="modal-confirm">确认调班</button>
+    </div>
+  </div>
+</div>
+
+<!-- 使用说明 -->
+<div id="help" class="overlay hidden">
+  <div class="modal help">
+    <h3>使用说明</h3>
+    <h4>五个步骤</h4>
+    <ol>
+      <li><strong>导入</strong>：拖入 Excel 名单。工具自动识别姓名、性别和成绩列，可以手动增减科目。表头不在第一行时，改「表头在第几行」。</li>
+      <li><strong>设置</strong>：填年级、班级数量、班名格式。</li>
+      <li><strong>约束</strong>：有「必须同班」「必须分开」「指定班级」的要求就在这里添加，没有就跳过。</li>
+      <li><strong>结果</strong>：查看均衡评分和各班名单，可手动调班。</li>
+      <li><strong>导出</strong>：导出 Excel、打印名单和公示、保存方案文件。</li>
+    </ol>
+    <h4>常见问题</h4>
+    <ul>
+      <li><strong>有学生缺成绩怎么办？</strong>照常导入。缺的科目不计入均衡，学生按其余科目的水平分班。</li>
+      <li><strong>没有成绩能分班吗？</strong>能。一科都不勾选，工具只保证各班人数和男女均衡，其余随机。</li>
+      <li><strong>科目满分不一样会不会不公平？</strong>不会。各科先换算成标准分再比较，150 分和 100 分的科目同等对待。</li>
+      <li><strong>随机种子是什么？</strong>决定同水平学生先后顺序的一个数字。名单、设置、种子都相同，结果就完全相同，便于复核。</li>
+      <li><strong>重名学生怎么区分？</strong>名单和调班窗口都显示「原表行号」，即学生在 Excel 中的行号。</li>
+      <li><strong>调班后均衡会变差吗？</strong>用「对调」基本不变；「仅移动」会改变两个班的人数。每一步都可以撤销。</li>
+      <li><strong>关掉程序数据会丢吗？</strong>会。在导出页点「保存方案文件」，下次用「载入方案」恢复。</li>
+      <li><strong>导出的文件在哪里？</strong>都在 output 文件夹里，导出页有「打开这个文件夹」按钮。PDF 生成后会自动打开。</li>
+      <li><strong>想先试试怎么办？</strong>在导入页点「载入演示数据」，会载入 257 名虚构学生，其中有两对双胞胎（欧阳、司马）和几名缺成绩的学生，可以用来试约束和调班。</li>
+      <li><strong>数据会上传吗？</strong>不会。所有计算都在这台电脑上完成，不联网也能用。</li>
+    </ul>
+    <div class="btns"><button class="primary" id="help-close">知道了</button></div>
+  </div>
+</div>
+
+<!-- 试用与激活 -->
+<div id="license" class="overlay hidden">
+  <div class="modal">
+    <h3>试用与激活</h3>
+    <p id="lic-state"></p>
+    <div class="f">本机的机器码：<code id="lic-machine"></code> <button class="small" id="lic-copy">复制</button></div>
+    <p class="muted">把机器码发给管理员，换取激活码。激活码只对这台电脑有效。</p>
+    <div class="f"><textarea id="lic-code" rows="3" placeholder="把激活码粘贴到这里"></textarea></div>
+    <p class="muted" id="lic-contact"></p>
+    <div class="btns">
+      <button id="lic-close">关闭</button>
+      <button class="primary" id="lic-activate">激活</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script src="xlsx.full.min.js"></script>
+<script src="algo.js"></script>
+<script src="demo.js"></script>
+<script>const TOKEN = "__YUNBAN_TOKEN__";</script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // 用用户提供的表头格式生成测试文件: 姓名 性别 毕业学校 语文 数学 英语
-const XLSX = require("../xlsx.full.min.js");
+const XLSX = require("../yunban/ui/xlsx.full.min.js");
 XLSX.set_fs(require("fs"));
 const path = require("path");
 const src = XLSX.readFile(path.join(__dirname, "..", "样例名单.xlsx"));
