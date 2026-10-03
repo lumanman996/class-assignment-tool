@@ -136,9 +136,11 @@
     border-radius: 8px; margin: 6px 0; cursor: pointer; }
   .cand:hover { border-color: var(--pri); }
   .cand .diff { margin-left: auto; color: var(--muted); font-size: 13px; }
-  .contact { display: flex; gap: 16px; align-items: center; }
-  .contact img { border-radius: 8px; border: 1px solid var(--border); background: #fff; flex: none; }
-  .contact p { margin: 4px 0; }
+  .contact p { margin: 6px 0; }
+  .progress { height: 10px; border-radius: 5px; background: var(--th); overflow: hidden; margin: 12px 0 6px; }
+  .progress i { display: block; height: 100%; width: 0; background: var(--pri); transition: width .3s; }
+  #upd-notes { white-space: pre-wrap; font-size: 14px; background: var(--th); border-radius: 8px; padding: 10px 14px;
+    max-height: 220px; overflow-y: auto; margin: 8px 0; }
   .contact a { color: var(--pri); }
   .help h4 { margin: 16px 0 4px; } .help p, .help li { font-size: 14px; } .help ol, .help ul { padding-left: 22px; margin: 4px 0; }
   #toasts { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 100;
@@ -157,6 +159,7 @@
       <div class="tagline">学生均衡分班工具 · 任意年级 · 科目自选 · 数据只在本机处理，不会上传</div>
     </div>
     <div class="tools">
+      <button id="btn-update" class="primary hidden"></button>
       <button id="btn-license" class="hidden"></button>
       <button id="btn-load-plan">载入方案</button>
       <button id="btn-help">使用说明</button>
@@ -390,21 +393,34 @@
       <li><strong>关掉程序数据会丢吗？</strong>会。在导出页点「保存方案文件」，下次用「载入方案」恢复。</li>
       <li><strong>导出的文件在哪里？</strong>都在 output 文件夹里，导出页有「打开这个文件夹」按钮。PDF 生成后会自动打开。</li>
       <li><strong>想先试试怎么办？</strong>在导入页点「载入演示数据」，会载入 257 名虚构学生，其中有两对双胞胎（欧阳、司马）和几名缺成绩的学生，可以用来试约束和调班。</li>
-      <li><strong>数据会上传吗？</strong>不会。所有计算都在这台电脑上完成，不联网也能用。</li>
+      <li><strong>数据会上传吗？</strong>不会。所有计算都在这台电脑上完成。程序只在检查更新时访问 GitHub，不发送任何名单数据；不联网也能正常使用。</li>
+      <li><strong>怎么更新？</strong>有新版本时右上角会出现「有新版本」按钮，点它再点「立即更新」即可。也可以点下面的「检查更新」。</li>
     </ul>
     <h4>联系作者</h4>
     <div class="contact">
-      <img src="wechat.png" alt="微信二维码" width="120" height="120">
-      <div>
-        <p>有问题、建议，或需要激活码，欢迎联系：</p>
-        <p><strong>微信</strong>：<code id="about-wechat">915274394</code>
-          <button class="small" id="about-copy">复制</button> <span class="muted">也可以扫左边的二维码添加</span></p>
-        <p><strong>项目主页</strong>：<a href="#" id="about-link">github.com/lumanman996/class-assignment-tool</a>
-          <span class="muted">查看更新、下载新版本</span></p>
-        <p class="muted" id="about-version"></p>
-      </div>
+      <p>有问题、建议，或需要激活码，欢迎联系：</p>
+      <p><strong>微信</strong>：<code id="about-wechat">915274394</code>
+        <button class="small" id="about-copy">复制</button></p>
+      <p><strong>项目主页</strong>：<a href="#" id="about-link">github.com/lumanman996/class-assignment-tool</a></p>
+      <p><span id="about-version"></span> <button class="small" id="about-check">检查更新</button></p>
     </div>
     <div class="btns"><button class="primary" id="help-close">知道了</button></div>
+  </div>
+</div>
+
+<!-- 版本更新 -->
+<div id="update" class="overlay hidden">
+  <div class="modal">
+    <h3>发现新版本</h3>
+    <p id="upd-versions"></p>
+    <div id="upd-notes"></div>
+    <p class="muted" id="upd-hint">更新时程序会自动关闭并重新打开。导出的文件和激活状态不受影响；没保存的分班结果会丢失，请先在导出页保存方案文件。</p>
+    <div id="upd-progress" class="hidden"><div class="progress"><i id="upd-bar"></i></div><span class="muted" id="upd-text"></span></div>
+    <div class="btns">
+      <button id="upd-later">以后再说</button>
+      <button id="upd-page">打开下载页面</button>
+      <button class="primary" id="upd-go">立即更新</button>
+    </div>
   </div>
 </div>
 

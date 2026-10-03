@@ -30,7 +30,7 @@ def selftest() -> int:
     made = {"ok": False}
     if st["data"]["license"]["canExport"]:
         made = call("pdf", {"name": "自检-报告", "html": "<html><meta charset='utf-8'><body><h1>匀班 自检</h1><p>中文 PDF</p></body></html>"})
-    scripts_ok = all(len(urllib.request.urlopen(url + n, timeout=10).read()) > 0 for n in ("algo.js", "app.js", "demo.js", "xlsx.full.min.js", "wechat.png"))
+    scripts_ok = all(len(urllib.request.urlopen(url + n, timeout=10).read()) > 0 for n in ("algo.js", "app.js", "demo.js", "xlsx.full.min.js"))
     httpd.shutdown()
     ok = APP_NAME in html and st.get("ok") and scripts_ok and saved.get("ok")
     lic = st["data"]["license"]

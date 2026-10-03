@@ -1124,7 +1124,58 @@ $("about-copy").onclick = () => {
   else toast("请手动选中微信号复制。", true);
 };
 $("about-link").onclick = (e) => { e.preventDefault(); api("homepage"); };
-refreshLicense();
+
+/* ---------- 版本检测与更新 ---------- */
+let updateInfo = null, updateTimer = null;
+// manual=true 是用户点的「检查更新」，要把结果说出来；启动时的自动检查查不到就不打扰
+async function checkUpdate(manual) {
+  let info;
+  try { info = await api("update_check"); } catch (err) { return; }
+  updateInfo = info;
+  if (info.newer) {
+    $("btn-update").textContent = `有新版本 ${info.latest}`;
+    $("btn-update").classList.remove("hidden");
+    if (manual) openUpdate();
+  } else if (manual) toast(info.ok ? `已经是最新版本（${info.current}）` : info.reason, !info.ok);
+}
+function openUpdate() {
+  const info = updateInfo;
+  $("upd-versions").innerHTML = `当前版本 <strong>${esc(info.current)}</strong>，最新版本 <strong>${esc(info.latest)}</strong>`;
+  $("upd-notes").textContent = info.notes || "（这个版本没有填写更新说明）";
+  $("upd-hint").textContent = info.canAuto
+    ? "更新时程序会自动关闭并重新打开。导出的文件和激活状态不受影响；没保存的分班结果会丢失，请先在导出页保存方案文件。"
+    : info.reason + " 可以点「打开下载页面」手动下载新版本。";
+  $("upd-go").classList.toggle("hidden", !info.canAuto);
+  $("upd-go").disabled = false;
+  $("upd-progress").classList.add("hidden");
+  $("update").classList.remove("hidden");
+}
+$("btn-update").onclick = openUpdate;
+$("about-check").onclick = () => { closeOverlay("help"); checkUpdate(true); };
+$("upd-later").onclick = () => closeOverlay("update");
+$("upd-page").onclick = () => api("releases");
+$("upd-go").onclick = async () => {
+  $("upd-go").disabled = true;
+  $("upd-progress").classList.remove("hidden");
+  await api("update_start");
+  clearInterval(updateTimer);
+  updateTimer = setInterval(async () => {
+    let st;
+    try { st = await api("update_status"); } catch (err) { clearInterval(updateTimer); return; }
+    $("upd-bar").style.width = st.percent + "%";
+    $("upd-text").textContent = st.phase === "downloading" ? `正在下载 ${st.percent}%` : "";
+    if (st.phase === "error") {
+      clearInterval(updateTimer);
+      $("upd-text").textContent = st.error;
+      $("upd-go").disabled = false;
+    } else if (st.phase === "ready") {
+      clearInterval(updateTimer);
+      $("upd-text").textContent = "下载完成，正在换上新版本，程序马上重新打开……";
+      api("update_apply").catch(() => { $("upd-go").disabled = false; });
+    }
+  }, 600);
+};
+refreshLicense().then(() => checkUpdate(false));
 setInterval(() => api("ping").catch(() => {}), 5000); // 用浏览器显示界面时，外壳靠它知道页面还开着
 
 /* ---------- 方案文件：保存与载入 ---------- */

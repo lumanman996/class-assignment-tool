@@ -1,7 +1,30 @@
-"""总入口：无参数开界面；--browser 用浏览器显示界面；--serve 只启动服务（开发调试用）；--selftest 做打包后的自检。"""
+"""总入口：无参数开界面；--browser 用浏览器显示界面；--serve 只启动服务（开发调试用）；--selftest 做打包后的自检；
+--apply-update <安装包.zip | online> [--then-selftest] 不开界面直接更新（打包自检用，online 表示从发布页下载最新版）。"""
 from __future__ import annotations
 
 import sys
+
+
+def _apply_update(source: str, relaunch_args: list) -> int:
+    import time
+    from pathlib import Path
+    from . import updater
+    up = updater.Updater()
+    if source == "online":
+        info = updater.check(timeout=20)
+        if not info.get("newer") or not info.get("canAuto"):
+            print("没有可以自动安装的新版本：", info.get("reason") or "已是最新", flush=True)
+            return 2
+        up.start(info["asset"])
+        while up.status()["phase"] == "downloading":
+            time.sleep(0.5)
+    else:
+        up.prepare(Path(source).resolve())
+    if up.status()["phase"] != "ready":
+        print("更新没有准备好：", up.status()["error"], flush=True)
+        return 1
+    up.apply(relaunch_args)
+    return 0
 
 
 def main(argv=None) -> int:
@@ -15,6 +38,8 @@ def main(argv=None) -> int:
     from . import gui
     if "--selftest" in argv or "--自检" in argv:
         return gui.selftest()
+    if "--apply-update" in argv:
+        return _apply_update(argv[argv.index("--apply-update") + 1], ["--selftest"] if "--then-selftest" in argv else [])
     if "--serve" in argv:
         import time
         from .server import start

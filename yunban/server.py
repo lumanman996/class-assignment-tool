@@ -15,11 +15,10 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import HOMEPAGE, VERSION, license, paths, pdf
+from . import HOMEPAGE, VERSION, license, paths, pdf, updater
 
 STATIC = {"algo.js": "text/javascript; charset=utf-8", "app.js": "text/javascript; charset=utf-8",
-          "demo.js": "text/javascript; charset=utf-8", "xlsx.full.min.js": "text/javascript; charset=utf-8",
-          "wechat.png": "image/png"}
+          "demo.js": "text/javascript; charset=utf-8", "xlsx.full.min.js": "text/javascript; charset=utf-8"}
 
 
 class ApiError(Exception):
@@ -32,6 +31,8 @@ class App:
         self.token = secrets.token_urlsafe(24)
         self.window = None
         self.last_ping = time.time()
+        self.updater = updater.Updater()
+        self.update_info = None
 
     # 文件名里去掉系统不允许的字符；只允许写进 output 文件夹
     def _target(self, name: str, ext: str) -> Path:
@@ -97,6 +98,35 @@ class App:
         if not os.environ.get("YUNBAN_NO_OPEN"):
             webbrowser.open(HOMEPAGE)
         return {"url": HOMEPAGE}
+
+    def api_update_check(self, body):
+        """查最新版本（只访问 GitHub 上本项目的发布页）。"""
+        self.update_info = updater.check()
+        return {k: v for k, v in self.update_info.items() if k != "asset"}
+
+    def api_update_start(self, body):
+        info = self.update_info
+        if not info or not info.get("newer") or not info.get("canAuto"):
+            raise ApiError((info or {}).get("reason") or "没有可以自动安装的新版本。")
+        self.updater.start(info["asset"])
+        return self.updater.status()
+
+    def api_update_status(self, body):
+        return self.updater.status()
+
+    def api_update_apply(self, body):
+        """换上新版本并重新打开：先启动替换脚本，再退出本程序。"""
+        try:
+            self.updater.apply()
+        except ValueError as e:
+            raise ApiError(str(e))
+        threading.Timer(0.8, lambda: os._exit(0)).start()   # 留一点时间把这次回应发回界面
+        return {}
+
+    def api_releases(self, body):
+        if not os.environ.get("YUNBAN_NO_OPEN"):
+            webbrowser.open(updater.RELEASES_PAGE)
+        return {"url": updater.RELEASES_PAGE}
 
     def api_ping(self, body):
         self.last_ping = time.time()
