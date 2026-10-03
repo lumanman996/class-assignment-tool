@@ -18,12 +18,16 @@ def _apply_update(source: str, relaunch_args: list) -> int:
         up.start(info["asset"])
         while up.status()["phase"] == "downloading":
             time.sleep(0.5)
-    else:
-        up.prepare(Path(source).resolve())
-    if up.status()["phase"] != "ready":
-        print("更新没有准备好：", up.status()["error"], flush=True)
+    try:
+        if source != "online":
+            up.prepare(Path(source).resolve())
+        if up.status()["phase"] != "ready":
+            raise ValueError(up.status()["error"] or "新版本没有准备好")
+        up.apply(relaunch_args)
+    except Exception as e:                                   # 带窗口的程序没有控制台，原因记到更新日志里
+        updater.log(f"更新没有完成：{type(e).__name__}: {e}")
+        print("更新没有完成：", e, flush=True)
         return 1
-    up.apply(relaunch_args)
     return 0
 
 

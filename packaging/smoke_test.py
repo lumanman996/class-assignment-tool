@@ -49,10 +49,13 @@ else:
     marker = folder / "使用说明.txt"                                                    # 文件被新版覆盖后内容应当恢复
     marker.write_text("old", encoding="utf-8")
 result.unlink()
-subprocess.run([str(exe), "--apply-update", str(zip_path), "--then-selftest"], env=env, timeout=180, check=False)
+code = subprocess.run([str(exe), "--apply-update", str(zip_path), "--then-selftest"], env=env, timeout=180, check=False).returncode
+print("更新命令退出码:", code)
 deadline = time.time() + 240
 while time.time() < deadline and not result.exists():
     time.sleep(1)
+update_log = home / "更新日志.txt"
+print("更新日志:\n" + (update_log.read_text(encoding="utf-8", errors="replace") if update_log.exists() else "（没有日志）"))
 if not result.exists():
     sys.exit("更新自检未通过：换上新版本后程序没有重新启动。")
 time.sleep(1)

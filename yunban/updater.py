@@ -16,16 +16,26 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import urllib.request
 import zipfile
 from pathlib import Path
 
-from . import APP_NAME, HOMEPAGE, VERSION
+from . import APP_NAME, HOMEPAGE, VERSION, paths
 
 API = "https://api.github.com/repos/lumanman996/class-assignment-tool/releases/latest"
 RELEASES_PAGE = HOMEPAGE + "/releases/latest"
 DOWNLOAD_PREFIX = HOMEPAGE + "/releases/download/"       # 只从本项目的发布页下载
 FROZEN = bool(getattr(sys, "frozen", False))
+LOG = paths.ROOT / "更新日志.txt"                        # 更新过程的记录，出问题时用来查原因
+
+
+def log(msg: str):
+    try:
+        with open(LOG, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%H:%M:%S')} {msg}\n")
+    except OSError:
+        pass
 
 
 def current_version() -> str:
@@ -164,6 +174,7 @@ class Updater:
         if not ok:
             raise ValueError("安装包里没有找到程序，请到下载页面手动下载。")
         self._set(tmp=tmp, new_root=root, phase="ready", percent=100)
+        log(f"新版本已解压：{root}")
 
     def apply(self, relaunch_args: list[str] | None = None):
         """启动替换脚本。调用后程序应当立刻退出，脚本会等它退出再动手。"""
@@ -173,6 +184,7 @@ class Updater:
         if self.phase != "ready" or not self.new_root:
             raise ValueError("新版本还没有准备好。")
         pid, args = os.getpid(), list(relaunch_args or [])
+        log(f"开始更新：{current_version()} 的程序位于 {target}，进程 {pid}")
         if sys.platform == "darwin":
             q = shlex.quote
             old = str(target) + ".old"
@@ -197,20 +209,40 @@ rm -rf {q(str(self.tmp))}
             exe = target / f"{APP_NAME}.exe"
             arg_part = f" -ArgumentList {','.join(p(a) for a in args)}" if args else ""
             script = self.tmp / "update.ps1"
-            script.write_text(f"""$ErrorActionPreference = 'SilentlyContinue'
-while (Get-Process -Id {pid}) {{ Start-Sleep -Milliseconds 300 }}
+            script.write_text(f"""$log = {p(LOG)}
+function Log($m) {{ Add-Content -LiteralPath $log -Value ((Get-Date -Format 'HH:mm:ss') + ' ' + $m) -Encoding UTF8 }}
+Log '替换脚本开始运行'
+while (Get-Process -Id {pid} -ErrorAction SilentlyContinue) {{ Start-Sleep -Milliseconds 300 }}
+Log '原程序已退出'
+$ok = $false
 for ($i = 0; $i -lt 20; $i++) {{
   try {{
     Copy-Item -Path (Join-Path {p(self.new_root)} '*') -Destination {p(target)} -Recurse -Force -ErrorAction Stop
+    $ok = $true
     break
-  }} catch {{ Start-Sleep -Milliseconds 500 }}
+  }} catch {{ Log ('复制没成功，稍后重试：' + $_.Exception.Message); Start-Sleep -Milliseconds 500 }}
 }}
-Start-Process -FilePath {p(exe)}{arg_part}
-Remove-Item -Path {p(self.tmp)} -Recurse -Force
+Log ('程序文件替换完成：' + $ok)
+try {{
+  Start-Process -FilePath {p(exe)}{arg_part} -ErrorAction Stop
+  Log '已重新打开程序'
+}} catch {{ Log ('重新打开失败：' + $_.Exception.Message) }}
+Remove-Item -LiteralPath {p(self.tmp)} -Recurse -Force -ErrorAction SilentlyContinue
 """, encoding="utf-8-sig")
-            flags = 0x00000008 | 0x00000200 | getattr(subprocess, "CREATE_NO_WINDOW", 0)   # 脱离本进程独立运行
-            subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", str(script)],
-                             creationflags=flags, close_fds=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            ps = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+            cmd = [str(ps) if ps.is_file() else "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(script)]
+            # 新进程组 + 不开黑窗口；尽量脱离本程序所在的作业，免得本程序退出时把脚本一起带走
+            base = 0x00000200 | getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+            for flags in (base | 0x01000000, base):
+                try:
+                    subprocess.Popen(cmd, creationflags=flags, close_fds=True, stdin=subprocess.DEVNULL,
+                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=str(self.tmp.parent))
+                    log(f"已启动替换脚本（flags={flags:#x}）")
+                    break
+                except OSError as e:
+                    log(f"启动替换脚本没成功（flags={flags:#x}）：{e}")
+            else:
+                raise ValueError("没能启动更新脚本，请到下载页面手动下载新版本。")
 
     def cleanup(self):
         if self.tmp:
