@@ -231,9 +231,10 @@ Remove-Item -LiteralPath {p(self.tmp)} -Recurse -Force -ErrorAction SilentlyCont
 """, encoding="utf-8-sig")
             ps = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
             cmd = [str(ps) if ps.is_file() else "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", str(script)]
-            # 新进程组 + 不开黑窗口；尽量脱离本程序所在的作业，免得本程序退出时把脚本一起带走
+            # 新进程组 + 不开黑窗口（实测可行）。不能用“完全脱离控制台”的方式启动，那样脚本跑不起来。
+            # 万一失败，再试一次“脱离本程序所在的作业”。
             base = 0x00000200 | getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
-            for flags in (base | 0x01000000, base):
+            for flags in (base, base | 0x01000000):
                 try:
                     subprocess.Popen(cmd, creationflags=flags, close_fds=True, stdin=subprocess.DEVNULL,
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, cwd=str(self.tmp.parent))
