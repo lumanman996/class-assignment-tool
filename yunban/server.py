@@ -117,7 +117,10 @@ def make_handler(app: App):
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionResetError):   # 对方没等收完就断开了，不用管
+                pass
 
         def _local(self) -> bool:
             host = (self.headers.get("Host") or "").split(":")[0]

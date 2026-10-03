@@ -1,7 +1,8 @@
 """打包成免安装程序，并压缩成 zip。在哪个系统上运行，就打哪个系统的包。
 
 用法:  python packaging/build.py
-结果:  dist/匀班-Windows.zip（解压后双击 匀班.exe）或 dist/匀班-Mac.zip（解压后双击 匀班.app）
+结果:  dist/yunban-Windows.zip（解压后双击 匀班.exe）或 dist/yunban-Mac.zip（解压后双击 匀班.app）
+压缩包用英文名：GitHub Releases 会去掉文件名里的中文。压缩包里面的文件夹和程序仍是中文名。
 yunban/_license_impl.py 存在时打出来的是带试用与激活的正式安装包；不存在则是不限制的版本。
 """
 import shutil
@@ -44,7 +45,7 @@ else:
 shutil.copy2(root / "packaging" / "使用说明.txt", folder / "使用说明.txt")
 shutil.copy2(root / "演示名单.xlsx", folder / "演示名单.xlsx")
 
-zip_path = dist / folder.name
+zip_path = dist / f"yunban-{'Mac' if mac else 'Windows'}"
 if mac:                                                      # ditto 能保留 .app 里的符号链接和可执行权限
     subprocess.run(["ditto", "-c", "-k", "--keepParent", str(folder), str(zip_path) + ".zip"], check=True)
 else:

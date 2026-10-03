@@ -12,8 +12,8 @@
 
 到 [Releases](https://github.com/lumanman996/class-assignment-tool/releases) 下载：
 
-- **Windows**：`匀班-Windows.zip`，解压后双击 `匀班.exe`
-- **Mac**：`匀班-Mac.zip`，解压后双击 `匀班`
+- **Windows**：`yunban-Windows.zip`，解压后双击 `匀班.exe`
+- **Mac**：`yunban-Mac.zip`，解压后双击 `匀班`
 
 > 第一次打开系统可能会拦一下：Windows 点"更多信息"→"仍要运行"；Mac 到"系统设置 → 隐私与安全性"里点"仍要打开"。
 
