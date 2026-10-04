@@ -37,3 +37,6 @@ __pycache__/
 .pytest_cache/
 自检结果.json
 更新日志.txt
+
+# 本机专用的开发说明
+CLAUDE.local.md
