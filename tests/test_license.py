@@ -9,10 +9,10 @@ import pytest
 
 impl = pytest.importorskip("yunban._license_impl")
 ADMIN = Path(__file__).resolve().parent.parent / "admin"
-if not (ADMIN / "private_key.pem").exists():
+if not (ADMIN / "密钥" / "私钥.pem").exists():
     pytest.skip("没有私钥，跳过", allow_module_level=True)
 
-spec = importlib.util.spec_from_file_location("make_code", ADMIN / "make_code.py")
+spec = importlib.util.spec_from_file_location("make_code", ADMIN / "工具" / "make_code.py")
 make_code = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(make_code)
 

@@ -1,10 +1,12 @@
 """用打好的程序做自检：能启动、界面文件齐全、本地服务通、许可状态符合预期；
+正式版还要检查验证模块是编译成机器码的、安装包里没有它的源码，并在程序副本里删掉它，确认导出被锁住；
 再用刚打好的安装包走一遍“更新 → 替换程序文件 → 自动重新打开”。在打包之后运行。
 
 用法:  python packaging/smoke_test.py
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -36,7 +38,69 @@ if licensed and not info.get("hasMachineCode"):
     sys.exit("自检未通过：没有取到机器码。")
 if info.get("canPdf") and info.get("license") != "expired" and not info.get("pdfMade"):
     sys.exit("自检未通过：电脑上有浏览器，但没有生成 PDF。")
+if info.get("license") == "expired":     # 在本机试跑时，这台电脑的试用可能已经到期（GitHub 上每次都是新电脑）
+    print("（提醒）这台电脑的试用已到期：跳过生成 PDF 的试跑，照常检查一键更新。在 GitHub 上打包时每次都是完整试跑。")
 print("自检通过")
+
+
+def bundled_modules(app_dir: Path) -> set:
+    """安装包里打进去的 Python 模块名（PyInstaller 把它们压在程序文件的 PYZ 里）。"""
+    from PyInstaller.archive.readers import CArchiveReader
+    names = set()
+    for f in app_dir.rglob("*"):
+        if not f.is_file() or f.suffix not in ("", ".exe") or f.stat().st_size < 100_000:
+            continue
+        try:
+            arch = CArchiveReader(str(f))
+        except Exception:
+            continue
+        for entry in arch.toc:
+            if entry.endswith(".pyz") or entry == "PYZ.pyz" or entry.startswith("PYZ"):
+                names.update(arch.open_embedded_archive(entry).toc)
+    return names
+
+
+def tamper_check():
+    """在程序的一份副本里删掉验证模块：正式版应当锁住导出，而不是变成不限制的版本。"""
+    tmp = Path(tempfile.mkdtemp(prefix="yunban-tamper-"))
+    if mac:
+        copy = tmp / f"{APP_NAME}.app"
+        subprocess.run(["ditto", str(folder / f"{APP_NAME}.app"), str(copy)], check=True)
+        copy_exe = copy / "Contents" / "MacOS" / APP_NAME
+    else:
+        copy = tmp / folder.name
+        shutil.copytree(folder, copy)
+        copy_exe = copy / exe.name
+    found = [p for p in copy.rglob("_license_impl*") if p.suffix in (".so", ".pyd")]
+    if not found:
+        sys.exit("安装包里没有找到编译后的验证模块。")
+    if [p for p in copy.rglob("_license_impl*") if p.suffix in (".py", ".pyc", ".c")]:
+        sys.exit("安装包里不应该有验证模块的源码。")
+    mods = bundled_modules(copy)
+    if not mods:
+        sys.exit("读不出安装包里打进去的模块列表，没法确认有没有验证模块的源码。")
+    if "yunban._license_impl" in mods:
+        sys.exit("安装包的程序文件里打进了验证模块的源码（应当只有编译后的机器码文件）。")
+    for f in found:
+        f.unlink()
+    home2 = tmp / "数据"
+    home2.mkdir()
+    subprocess.run([str(copy_exe), "--selftest"], env=dict(env, YUNBAN_HOME=str(home2)), timeout=180, check=False)
+    res = home2 / "自检结果.json"
+    if not res.exists():
+        sys.exit("删掉验证模块后，自检没有产生结果。")
+    after = json.loads(res.read_text(encoding="utf-8"))
+    print("删掉验证模块后:", json.dumps(after, ensure_ascii=False))
+    if after.get("licenseModule") != "none" or after.get("canExport") or after.get("license") != "expired":
+        sys.exit("防篡改检查未通过：删掉验证模块后导出没有锁住。")
+    shutil.rmtree(tmp, ignore_errors=True)
+    print(f"防篡改检查通过：验证模块是机器码（{found[0].name}），安装包里没有源码；删掉它，导出就锁住。")
+
+
+if licensed:                             # 正式版：验证模块必须是编译成机器码的
+    if info.get("licenseModule") != "native":
+        sys.exit(f"自检未通过：验证模块不是机器码（{info.get('licenseModule')}）。")
+    tamper_check()
 
 # ---- 更新流程：拿刚打好的安装包当“新版本”，让程序把自己换掉再重新打开 ----
 import time  # noqa: E402

@@ -10,7 +10,7 @@ import time
 import urllib.request
 import webbrowser
 
-from . import APP_NAME, APP_TITLE
+from . import APP_NAME, APP_TITLE, license
 from .server import start
 
 
@@ -35,7 +35,8 @@ def selftest() -> int:
     ok = APP_NAME in html and st.get("ok") and scripts_ok and saved.get("ok")
     lic = st["data"]["license"]
     info = {"ok": bool(ok), "version": st["data"]["version"], "license": lic["state"], "hasMachineCode": bool(lic.get("machine")),
-            "canPdf": st["data"]["canPdf"], "pdfMade": bool(made.get("ok") and made["data"]["kind"] == "pdf"), "root": str(app.root)}
+            "canPdf": st["data"]["canPdf"], "pdfMade": bool(made.get("ok") and made["data"]["kind"] == "pdf"), "root": str(app.root),
+            "licenseModule": license.module_kind(), "canExport": lic["canExport"]}
     (app.root / "自检结果.json").write_text(json.dumps(info, ensure_ascii=False), encoding="utf-8")
     print(json.dumps(info, ensure_ascii=False))
     return 0 if ok else 1

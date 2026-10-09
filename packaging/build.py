@@ -3,7 +3,8 @@
 用法:  python packaging/build.py
 结果:  dist/yunban-Windows.zip（解压后双击 匀班.exe）或 dist/yunban-Mac.zip（解压后双击 匀班.app）
 压缩包用英文名：GitHub Releases 会去掉文件名里的中文。压缩包里面的文件夹和程序仍是中文名。
-yunban/_license_impl.py 存在时打出来的是带试用与激活的正式安装包；不存在则是不限制的版本。
+yunban/_license_impl.py 存在时打出来的是带试用与激活的正式安装包：先把它编译成机器码再打进去
+（packaging/compile_license.py），安装包里没有它的源码。不存在则是不限制的版本。
 """
 import shutil
 import subprocess
@@ -13,6 +14,9 @@ from pathlib import Path
 root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from yunban import APP_NAME, VERSION  # noqa: E402
+
+sys.path.insert(0, str(root / "packaging"))
+from compile_license import compiled_license, hidden_imports  # noqa: E402
 
 mac = sys.platform == "darwin"
 sep = ";" if sys.platform == "win32" else ":"
@@ -25,12 +29,16 @@ cmd = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean", "--windowe
        "--icon", str(root / "packaging" / ("icon.icns" if mac else "icon.ico")),
        "--add-data", f"{root / 'yunban' / 'ui'}{sep}yunban/ui",
        "--distpath", str(root / "dist"), "--workpath", str(root / "build"), "--specpath", str(root / "build")]
-if licensed:
-    cmd += ["--hidden-import", "yunban._license_impl"]
+if licensed:                                                 # 编译后的模块 PyInstaller 看不出它用了哪些模块，逐个列出
+    for mod in ["yunban._license_impl", "yunban._build_info", *hidden_imports()]:
+        cmd += ["--hidden-import", mod]
 if mac:
     cmd += ["--osx-bundle-identifier", "cn.yunban.app"]
 cmd.append(str(root / "packaging" / "entry.py"))
-subprocess.run(cmd, check=True, cwd=root)
+with compiled_license() as native:
+    if native:
+        print(f"试用与激活模块已编译成机器码：{native.name}")
+    subprocess.run(cmd, check=True, cwd=root)
 
 dist = root / "dist"
 folder = dist / f"{APP_NAME}-{'Mac' if mac else 'Windows'}"
@@ -50,4 +58,4 @@ if mac:                                                      # ditto 能保留 .
     subprocess.run(["ditto", "-c", "-k", "--keepParent", str(folder), str(zip_path) + ".zip"], check=True)
 else:
     shutil.make_archive(str(zip_path), "zip", dist, folder.name)
-print(f"已生成 {zip_path}.zip（版本 {VERSION}，{'带试用与激活' if licensed else '不限制的版本'}）")
+print(f"已生成 {zip_path}.zip（版本 {VERSION}，{'带试用与激活，验证模块已编译成机器码' if licensed else '不限制的版本'}）")

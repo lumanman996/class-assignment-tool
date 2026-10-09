@@ -122,3 +122,36 @@ def test_update_api_refuses_without_new_version(srv):
     assert call(url, app.token, "update_check")["data"]["newer"] is False
     assert not call(url, app.token, "update_start")["ok"]
     assert not call(url, app.token, "update_apply")["ok"]
+
+
+def test_licensed_build_locks_when_module_missing(monkeypatch):
+    """正式安装包（打包时记下了 LICENSED）里如果验证模块不见了：锁住导出，不能变成不限制的版本。
+    公开源码自己运行（没有 LICENSED）时照旧不限制。"""
+    monkeypatch.setattr(license, "_impl", None)
+    monkeypatch.setattr(license, "LICENSED", False)
+    assert license.status()["state"] == "open" and license.status()["canExport"] and license.module_kind() == "none"
+    license.require_export()
+    monkeypatch.setattr(license, "LICENSED", True)
+    monkeypatch.setattr(license, "FROZEN", False)
+    assert license.status()["canExport"]                                  # 用源码运行（开发、测试）不受影响
+    monkeypatch.setattr(license, "FROZEN", True)
+    st = license.status()
+    assert st["state"] == "expired" and not st["canExport"] and "不完整" in st["message"]
+    with pytest.raises(license.LicenseError):
+        license.require_export()
+    res = license.activate("任何码")
+    assert not res["activated"] and "不完整" in res["message"]
+    app = server.App()                                                    # 外壳把关：导出被拒，方案照常能存
+    with pytest.raises(license.LicenseError):
+        app.api_save({"kind": "export", "ext": "xlsx", "name": "x", "data": ""})
+    with pytest.raises(license.LicenseError):
+        app.api_pdf({"name": "x", "html": "<p>x</p>"})
+    assert app.api_save({"kind": "plan", "ext": "json", "name": "方案", "data": ""})["name"] == "方案.json"
+
+
+def test_module_kind_reports_compiled_module(monkeypatch):
+    import types
+    monkeypatch.setattr(license, "_impl", types.SimpleNamespace(__file__="x/_license_impl.cpython-312-darwin.so"))
+    assert license.module_kind() == "native"
+    monkeypatch.setattr(license, "_impl", types.SimpleNamespace(__file__="x/_license_impl.py"))
+    assert license.module_kind() == "python"

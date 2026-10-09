@@ -55,8 +55,18 @@ jobs:
         run: python -c "import base64, os, pathlib; d = os.environ.get('LICENSE_IMPL', ''); d and pathlib.Path('yunban/_license_impl.py').write_bytes(base64.b64decode(d)); print('license module:', bool(d))"
       - name: 打包
         run: python packaging/build.py
-      - name: 用打好的程序自检
+      - name: 用打好的程序自检、检查防篡改，再走一遍一键更新
         run: python packaging/smoke_test.py
+      - name: 用 Windows 自带的杀毒软件扫一遍打好的程序（只看结果，扫不了不算失败）
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        shell: pwsh
+        run: |
+          $mp = "$env:ProgramFiles\Windows Defender\MpCmdRun.exe"
+          if (-not (Test-Path $mp)) { "这台机器上没有 Windows Defender，跳过"; exit 0 }
+          & $mp -SignatureUpdate | Out-Null
+          & $mp -Scan -ScanType 3 -File "$PWD\dist" -DisableRemediation
+          if ($LASTEXITCODE -eq 2) { "::warning::Windows Defender 报告发现威胁，请人工检查"; exit 1 } else { "Windows Defender 扫描结果：没有发现威胁（退出码 $LASTEXITCODE）" }
       - uses: actions/upload-artifact@v4
         with:
           name: yunban-${{ matrix.name }}
