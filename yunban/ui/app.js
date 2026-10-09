@@ -1079,13 +1079,14 @@ function renderLicense() {
   const lic = license, btn = $("btn-license");
   btn.classList.toggle("hidden", lic.state === "open");
   btn.textContent = lic.state === "active" ? "已激活"
-    : lic.state === "trial" ? `试用中 · 剩 ${lic.daysLeft} 天` : "试用已结束 · 输入激活码";
+    : lic.state === "trial" ? `试用中 · 剩 ${lic.daysLeft} 天` : lic.broken ? "导出已锁定" : "试用已结束 · 输入激活码";
   btn.classList.toggle("primary", lic.state === "expired");
   $("lic-state").innerHTML = lic.state === "active"
     ? `<span class="pill ok">已激活</span> ${lic.expiry ? "有效期至 " + esc(lic.expiry) : "长期有效"}`
     : lic.state === "trial"
       ? `<span class="pill warn">试用中</span> 还可以免费使用 ${lic.daysLeft} 天，试用期内功能不受限制。`
-      : `<span class="pill bad">试用已结束</span> 仍然可以分班和查看结果，导出需要先激活。`;
+      : lic.broken ? `<span class="pill bad">导出已锁定</span> ${esc(lic.message)}`
+        : `<span class="pill bad">试用已结束</span> 仍然可以分班和查看结果，导出需要先激活。`;
   $("lic-machine").textContent = lic.machine || "";
   $("lic-contact").textContent = lic.contact || "";
 }
@@ -1094,7 +1095,7 @@ function openLicense() { renderLicense(); $("license").classList.remove("hidden"
 function canExport() {
   if (license.canExport) return true;
   openLicense();
-  toast("试用已结束，导出需要先激活。", true);
+  toast(license.broken ? license.message : "试用已结束，导出需要先激活。", true);
   return false;
 }
 $("btn-license").onclick = openLicense;

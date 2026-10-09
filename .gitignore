@@ -25,7 +25,10 @@ scripts/md2docx.py
 
 # 试用与激活：验证模块、私钥、发码工具 —— 只在本机保存，绝不上传
 yunban/_license_impl.py
+yunban/_license_impl.*
+yunban/_build_info.py
 admin/
+/admin
 
 # 导出结果、打包产物、Python 环境
 output/

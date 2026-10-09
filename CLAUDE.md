@@ -28,7 +28,8 @@ yunban/                 程序
                         试用与激活、检查和安装更新、打开文件夹和项目主页。每次启动换一个随机口令（页面里的 __YUNBAN_TOKEN__）
   pdf.py                调用电脑上已有的 Edge / Chrome（无头模式）把 HTML 打印成 PDF；找不到浏览器返回 False
   updater.py            版本检测与联网更新（见下文"联网更新"）
-  license.py            试用与激活的入口（公开）；真正的验证在 _license_impl.py（不入库）
+  license.py            试用与激活的入口（公开）；真正的验证在 _license_impl.py（不入库，打包时编译成机器码）；
+                        正式安装包里验证模块缺失时锁住导出；module_kind() 报告模块是 native / python / none
   paths.py              数据文件夹在哪里（见下文）
   ui/
     index.html          页面（样式、五步向导、各种弹窗、使用说明都在这里）
@@ -36,13 +37,15 @@ yunban/                 程序
     algo.js             分班核心算法（界面和 node 测试共用；浏览器下是 window.FenbanAlgo）
     demo.js             演示名单生成器（固定种子，257 名虚构学生；界面「载入演示数据」和 scripts/gen_demo.js 共用）
     xlsx.full.min.js    SheetJS 社区版（Apache 2.0），读写 Excel，随仓库分发
-packaging/              打包：build.py、entry.py、smoke_test.py、release_notes.py、图标、使用说明.txt、发布说明.md
-.github/workflows/      build.yml：测试 → Windows / Mac 打包并自检 → 推标签时发布到 Releases
+packaging/              打包：build.py、compile_license.py（Cython 编译验证模块）、entry.py、smoke_test.py、release_notes.py、
+                        图标、使用说明.txt、发布说明.md
+.github/workflows/      build.yml：测试 → Windows / Mac 打包并自检（含防篡改检查；Windows 再用 Defender 扫一遍）→ 推标签时发布到 Releases
 tests/                  test_algo.js（算法，node）、test_app.py（外壳）、test_license.py（许可；没有验证模块和私钥时整份跳过）
 docs/                   使用手册.md、算法说明.md、微信二维码.png
 scripts/                gen_demo.js（演示名单.xlsx）、gen_sample.js（样例名单.xlsx）、gen_user_format.js（测试-用户表格式.xlsx）
 tools/make_icons.py     生成 icon.png / .ico / .icns（需要 Pillow 和宋体，.icns 要在 Mac 上生成）
-admin/                  发码工具和私钥，只在本机（.gitignore），说明见 admin/说明.md
+admin/                  发码工具和私钥，只在本机（.gitignore），说明见 admin/说明.md：随身带的 匀班发码器.html 和 发码记录.csv、
+                        密钥/（私钥.pem、公钥.txt）、一键备份（Mac）.command、工具/（make_issuer.py、make_code.py、backup.py、pack_secret.py 等）
 演示名单.xlsx 样例名单.xlsx 测试-用户表格式.xlsx    都是脚本随机生成的虚构数据
 ```
 
@@ -140,6 +143,14 @@ admin/                  发码工具和私钥，只在本机（.gitignore），�
   （`YUNBAN_LICENSE_DIR`、`YUNBAN_MACHINE`，见 `tests/conftest.py` 和 `.claude/launch.json`）。这些变量在打包后的程序里不认。
 - CI 打正式安装包时，从仓库保密项 `LICENSE_IMPL`（验证模块的 base64，只含公钥）取出验证模块放进去；没有保密项就打不限制的版本。
   改了 `_license_impl.py` 要重新设置保密项（命令见 admin/说明.md）。
+- **验证模块编译成机器码**（2026-10-09，照分寸 v2.0.4 的做法）：`packaging/build.py` 打包时用 Cython 把 `_license_impl.py` 编译成
+  .pyd / .so（`packaging/compile_license.py`：编译、把 .py 暂时挪开、写 `yunban/_build_info.py` 记 `LICENSED = True`，打完全部恢复），
+  安装包里只有编译后的文件、没有源码。编译后的模块 PyInstaller 看不出它 import 了什么，`hidden_imports()` 从源码里读出来逐个加上。
+  正式安装包（打包后 + `LICENSED`）里验证模块缺失或损坏时，`license.py` **锁住导出**（state=expired、canExport=False、`broken`、
+  提示"程序文件不完整……请重新下载安装包"），激活也报这个错，不会退回不限制的公开源码版；用源码运行照旧不限制。
+- 发码：随身带的网页发码器 `admin/匀班发码器.html`（发码 / 发码记录 / 统计三页；Chrome、Edge 里自动存回 U 盘上的 `发码记录.csv`），
+  由 `admin/工具/make_issuer.py` 生成（`--换界面` 不用密码只换网页，`--自测` 用一次性密码在无界面浏览器里核对）。
+  `admin/工具/make_code.py` 只是签码核心，给测试（`tests/test_license.py`）和自动核对用。Mac 上不再有双击发码。
 - 与分寸的许可**完全分开**（用户明确要求单独设计）：产品标识、密钥对、发码工具都不同。
 - 激活窗口里显示的联系方式来自验证模块里的配置（v2.0.2 起只留微信）。界面上的许可状态按钮：试用中显示剩几天，到期显示"输入激活码"，激活后显示"已激活"。
 
@@ -193,14 +204,20 @@ python -m pytest -q                # 外壳测试（只收 tests 目录）；有
 python -m yunban                   # 开程序窗口
 python -m yunban --browser         # 用浏览器开界面
 python packaging/build.py          # 打当前系统的免安装包 → dist/yunban-Windows.zip 或 dist/yunban-Mac.zip
-python packaging/smoke_test.py     # 用打好的程序自检，再拿这个安装包走一遍"更新 → 替换 → 重新打开"
+python packaging/smoke_test.py     # 用打好的程序自检、防篡改检查，再拿这个安装包走一遍"更新 → 替换 → 重新打开"
 node scripts/gen_demo.js           # 重新生成 演示名单.xlsx（和界面里的演示数据是同一份）
 ```
 
-- 打包：PyInstaller onedir + windowed，`yunban/ui` 作为数据带进去；有 `_license_impl.py` 时加 hidden-import。
+- 打包：PyInstaller onedir + windowed，`yunban/ui` 作为数据带进去；有 `_license_impl.py` 时先编译成机器码（需要 Cython 和 C 编译器：
+  Mac 是 Xcode 命令行工具，Windows 是 VS 生成工具，GitHub 的打包机器上都有），再加 hidden-import。
   压缩包里是 `匀班-Windows/`（匀班.exe 等）或 `匀班-Mac/匀班.app`，另附 `使用说明.txt`、`演示名单.xlsx`。Mac 用 `ditto` 压缩。
-- 自检（`--selftest`）检查：界面和脚本文件在、服务通、许可状态符合预期、能取到机器码、能保存文件、有浏览器时能生成 PDF。
+- 自检（`--selftest`）检查：界面和脚本文件在、服务通、许可状态符合预期、能取到机器码、能保存文件、有浏览器时能生成 PDF；
+  结果里还有 `licenseModule`（native / python / none）和 `canExport`。
+- `smoke_test.py` 对正式版另外检查：验证模块是 native；安装包里没有 `_license_impl.py/.pyc/.c`，程序文件的 PYZ 里也没有这个模块；
+  在程序副本里删掉编译后的模块再自检，必须是 licenseModule=none、canExport=False、license=expired。
+  本机试用已到期时跳过生成 PDF 的试跑，照常测一键更新。
 - CI（`.github/workflows/build.yml`）：每次推送和 PR 都跑测试，再在 Windows、Mac 上打包、自检、走一遍更新流程；
+  Windows 打包后用 Defender（MpCmdRun.exe）扫一遍 dist，只看结果，`continue-on-error`；
   推 `v*` 标签时把两个 zip 发布到 Releases，发布说明 = CHANGELOG 里这个版本的内容 + `packaging/发布说明.md`。
 - Mac 版由 `macos-latest` 打包，只有 Apple 芯片；两个系统的程序都没有数字签名，第一次打开会被拦（说明里写了怎么放行）。
 

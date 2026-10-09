@@ -2,4 +2,5 @@
 -r requirements.txt
 pytest>=7.0
 pyinstaller>=6.0
+Cython>=3.0           # 打包时把试用与激活模块编译成机器码
 pillow>=10.0          # 只有重新生成图标时用（tools/make_icons.py）
